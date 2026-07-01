@@ -1,0 +1,293 @@
+{
+  "meta": {
+    "studyName": "Exemple - PME Industrielle",
+    "organization": "Entreprise Exemple SAS",
+    "scope": "Système d'information du site de production - Infrastructure locale, ERP, applications métier, services cloud",
+    "date": "2026-01-01",
+    "version": "1.0",
+    "jalons": 4,
+    "lastSaved": "2026-07-01T14:40:58.555Z"
+  },
+  "missions": [
+    {
+      "id": 226,
+      "t": "test2"
+    }
+  ],
+  "bv": [
+    {
+      "id": 10,
+      "name": "Continuité d'activité",
+      "type": "Processus métier",
+      "desc": "Capacité à maintenir la production et les services aux clients",
+      "support": "ERP, Serveurs, Messagerie",
+      "owner": "Direction Générale"
+    },
+    {
+      "id": 11,
+      "name": "Conformité réglementaire",
+      "type": "Données perso",
+      "desc": "Respect du RGPD et des obligations légales",
+      "support": "Serveur fichiers, Active Directory, ERP",
+      "owner": "DPO",
+      "mission": null
+    },
+    {
+      "id": 12,
+      "name": "Propriété intellectuelle",
+      "type": "Propriété intellectuelle",
+      "desc": "Protection des savoir-faire et données stratégiques",
+      "support": "Serveur fichiers, NAS",
+      "owner": "Direction Technique",
+      "mission": null
+    }
+  ],
+  "fe": [
+    {
+      "id": 20,
+      "bv": 10,
+      "desc": "Indisponibilité de l'ERP pendant plus de 48h",
+      "g": "4",
+      "impact": "Missions"
+    },
+    {
+      "id": 21,
+      "bv": 10,
+      "desc": "Panne prolongée des serveurs de production",
+      "g": "4",
+      "impact": "Sécurité personnes"
+    },
+    {
+      "id": 22,
+      "bv": 11,
+      "desc": "Divulgation non autorisée des données RH",
+      "g": "4",
+      "impact": "Juridiques"
+    },
+    {
+      "id": 23,
+      "bv": 12,
+      "desc": "Vol de propriété intellectuelle",
+      "g": "3",
+      "impact": "Financiers"
+    }
+  ],
+  "baseline": [
+    {
+      "id": 222,
+      "ref": "Guide hygiène ANSSI",
+      "status": "Appliqué",
+      "gap": ""
+    },
+    {
+      "id": 223,
+      "ref": "ISO 27002",
+      "status": "Partiel",
+      "gap": ""
+    },
+    {
+      "id": 225,
+      "ref": "NIS2",
+      "status": "En cours",
+      "gap": ""
+    }
+  ],
+  "rs": [
+    {
+      "id": 206,
+      "type": "Crime organisé",
+      "objs": [
+        "Déstabilisation"
+      ],
+      "mot": "3",
+      "res": "2",
+      "retained": true
+    },
+    {
+      "id": 207,
+      "type": "Attaquant interne",
+      "objs": [
+        "Déstabilisation",
+        "Entrave"
+      ],
+      "mot": "3",
+      "res": "2",
+      "retained": true
+    },
+    {
+      "id": 210,
+      "type": "État étranger",
+      "objs": [
+        "Espionnage",
+        "Pré-positionnement",
+        "Déstabilisation",
+        "Entrave",
+        "Idéologique",
+        "Sabotage",
+        "Chantage"
+      ],
+      "mot": "3",
+      "res": "2",
+      "retained": true
+    },
+    {
+      "id": 216,
+      "type": "Crime organisé",
+      "objs": [
+        "Espionnage"
+      ],
+      "mot": "3",
+      "res": "3",
+      "retained": false
+    },
+    {
+      "id": 217,
+      "type": "Crime organisé",
+      "objs": [
+        "Chantage"
+      ],
+      "mot": "3",
+      "res": "3",
+      "retained": false
+    }
+  ],
+  "customSources": [],
+  "objectifsVises": [],
+  "pp": [
+    {
+      "id": 70,
+      "name": "Prestataire IT",
+      "cat": "Prestataires IT",
+      "d": 3,
+      "p": 3,
+      "m": 3,
+      "c": 3,
+      "zone": "sensible"
+    },
+    {
+      "id": 71,
+      "name": "Hébergeur cloud",
+      "cat": "Hébergeurs",
+      "d": 3,
+      "p": 2,
+      "m": 4,
+      "c": 4,
+      "zone": "standard"
+    },
+    {
+      "id": 72,
+      "name": "Fournisseurs",
+      "cat": "Fournisseurs",
+      "d": 2,
+      "p": 1,
+      "m": 2,
+      "c": 3,
+      "zone": "standard"
+    }
+  ],
+  "ss": [
+    {
+      "id": 91,
+      "srIds": [
+        206
+      ],
+      "ppIds": [
+        70
+      ],
+      "erIds": [
+        23
+      ],
+      "g": "3",
+      "desc": "Attaque sur le prestataire entraînant une fuite de données"
+    }
+  ],
+  "os": [
+    {
+      "id": 212,
+      "ss": 91,
+      "v": "3",
+      "desc": "dfgfdg",
+      "actions": [
+        {
+          "tactic": "Reconnaissance",
+          "technique": "OSINT",
+          "v": 2,
+          "color": "#64748b"
+        },
+        {
+          "tactic": "Initial Access",
+          "technique": "Phishing",
+          "v": 2,
+          "color": "#ef4444"
+        },
+        {
+          "tactic": "Defense Evasion",
+          "technique": "Process injection",
+          "v": 2,
+          "color": "#06b6d4"
+        },
+        {
+          "tactic": "Credential Access",
+          "technique": "Credential dump",
+          "v": 2,
+          "color": "#ec4899",
+          "bs": "Serveur fichiers"
+        },
+        {
+          "tactic": "Exfiltration",
+          "technique": "Exfil to cloud",
+          "v": 2,
+          "color": "#dc2626",
+          "bs": "NAS"
+        }
+      ]
+    }
+  ],
+  "measures": [
+    {
+      "id": 235,
+      "riskIds": [
+        212
+      ],
+      "cat": "protection",
+      "measure": "Chiffrement des backup chez le prestataire IT",
+      "resp": "RSSI",
+      "jalon": 2,
+      "status": "ongoing"
+    }
+  ],
+  "erToSr": [
+    {
+      "er": 23,
+      "sr": 206
+    },
+    {
+      "er": 20,
+      "sr": 207
+    },
+    {
+      "er": 21,
+      "sr": 207
+    },
+    {
+      "er": 22,
+      "sr": 206
+    },
+    {
+      "er": 23,
+      "sr": 207
+    }
+  ],
+  "risquesResiduels": [
+    {
+      "id": 236,
+      "riskId": 212,
+      "gRes": 1,
+      "vRes": 3,
+      "jalon": 2,
+      "justification": "Gravitié diminuée car export de donnée chiffrée, vraisemblance toujours aussi élevée",
+      "decision": "réduit",
+      "transferTarget": ""
+    }
+  ]
+}
