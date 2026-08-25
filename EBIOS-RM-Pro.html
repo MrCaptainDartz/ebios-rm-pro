@@ -1160,93 +1160,106 @@ ${o.desc ? `<p class="text-white text-sm mb-2 bg-slate-800/50 p-2 rounded">${esc
         async function genGraphSS(ssId) {
             const s = D.ss.find(x => x.id === ssId);
             if (!s) return;
-            
+
             let md = "flowchart TD\n";
-            md += `  classDef attack fill:#fee2e2,stroke:#ef4444,color:#7f1d1d;\n`;
-            md += `  classDef impact fill:#fef3c7,stroke:#f59e0b,color:#92400e;\n`;
             md += `  classDef ss fill:#ede9fe,stroke:#8b5cf6,color:#4c1d95;\n`;
-            md += `  classDef vm fill:#e0f2fe,stroke:#0ea5e9,color:#0c4a6e;\n`;
+            md += `  classDef attack fill:#fee2e2,stroke:#ef4444,color:#7f1d1d;\n`;
+            md += `  classDef pp fill:#e0f2fe,stroke:#0ea5e9,color:#0c4a6e;\n`;
             md += `  classDef bs fill:#f1f5f9,stroke:#64748b,color:#0f172a;\n`;
+            md += `  classDef vm fill:#e0f2fe,stroke:#0369a1,color:#0c4a6e;\n`;
+            md += `  classDef impact fill:#fef3c7,stroke:#f59e0b,color:#92400e;\n`;
 
             const ssNode = `SS_${s.id}`;
             md += `  ${ssNode}["SS: ${esc(s.desc).replace(/["']/g, '')}"]:::ss\n`;
 
+            // Sources de risque
             const srNodes = [];
-            (s.srIds || []).forEach(sid => {
+            (s.srIds || []).forEach((sid, idx) => {
                 const r = D.rs.find(x => x.id === sid);
                 if (r) {
-                    const srNode = `SR_${r.id}`;
+                    const srNode = `SR_${s.id}_${idx}`;
                     const label = `SR: ${r.type}` + (r.objs && r.objs.length ? `<br>OV: ${r.objs.join(', ')}` : '');
                     md += `  ${srNode}["${label.replace(/["']/g, '')}"]:::attack\n`;
                     srNodes.push(srNode);
                 }
             });
 
-            const ppNodes = [];
-            if (s.ppIds && s.ppIds.length > 0) {
-                s.ppIds.forEach(pid => {
-                    const p = D.pp.find(x => x.id === pid);
-                    if (p) {
-                        const ppNode = `PP_${p.id}`;
-                        md += `  ${ppNode}["PP: ${esc(p.name).replace(/["']/g, '')}"]:::bs\n`;
-                        ppNodes.push(ppNode);
-                    }
-                });
+            // Parties prenantes (agrégées dans un seul nœud)
+            const ppIds = s.ppIds || [s.pp].filter(Boolean);
+            const ppNames = ppIds.map(pid => { const p = D.pp.find(x => x.id === pid); return p ? esc(p.name) : null; }).filter(Boolean);
+            const ppNode = ppNames.length ? `PP_${s.id}` : null;
+            if (ppNode) {
+                const ppLabel = ('PP (optionnel)<br><br>' + ppNames.join('<br>')).replace(/["']/g, '');
+                md += `  ${ppNode}["${ppLabel}"]:::pp\n`;
             }
 
-            if (srNodes.length > 0) {
-                srNodes.forEach(srNode => {
-                    if (ppNodes.length > 0) {
-                        ppNodes.forEach(ppNode => md += `  ${srNode} --> ${ppNode}\n`);
-                    } else {
-                        md += `  ${srNode} --> ${ssNode}\n`;
-                    }
-                });
-                if (ppNodes.length > 0) {
-                    ppNodes.forEach(ppNode => md += `  ${ppNode} --> ${ssNode}\n`);
-                }
-            }
-
+            // Biens supports par VM
+            const vmBs = {}; // vmNode -> { bsNode, bsList, erNodes }
             const erIds = s.erIds || [s.fe];
-            const nodes = new Set();
-            const links = new Set();
-            
             erIds.filter(Boolean).forEach(eid => {
                 const f = D.fe.find(x => x.id === eid);
-                if (f) {
-                    const erNode = `ER_${f.id}`;
-                    nodes.add(`  ${erNode}["ER: ${esc(f.desc).replace(/["']/g, '')}"]:::impact\n`);
-                    
-                    const b = D.bv.find(x => x.id === f.bv);
-                    if (b) {
-                        const vmNode = `VM_${b.id}`;
-                        nodes.add(`  ${vmNode}["VM: ${esc(b.name).replace(/["']/g, '')}"]:::vm\n`);
-                        links.add(`  ${vmNode} --> ${erNode}\n`);
-                        
-                        const bsList = (b.support || '').split(',').map(x => x.trim()).filter(Boolean);
-                        if (bsList.length > 0) {
-                            bsList.forEach((bsName, idx) => {
-                                const bsNode = `BS_${b.id}_${idx}`;
-                                nodes.add(`  ${bsNode}["BS: ${esc(bsName).replace(/["']/g, '')}"]:::bs\n`);
-                                links.add(`  ${bsNode} --> ${vmNode}\n`);
-                                links.add(`  ${ssNode} --> ${bsNode}\n`);
-                            });
-                        } else {
-                            links.add(`  ${ssNode} --> ${vmNode}\n`);
-                        }
-                    } else {
-                        links.add(`  ${ssNode} --> ${erNode}\n`);
-                    }
+                if (!f) return;
+                const erNode = `ER_${f.id}`;
+                md += `  ${erNode}["ER: ${esc(f.desc).replace(/["']/g, '')}"]:::impact\n`;
+
+                const b = D.bv.find(x => x.id === f.bv);
+                if (!b) return;
+
+                const vmNode = `VM_${b.id}`;
+                const bsList = (b.support || '').split(',').map(x => x.trim()).filter(Boolean);
+                if (!vmBs[vmNode]) {
+                    md += `  ${vmNode}["VM: ${esc(b.name).replace(/["']/g, '')}"]:::vm\n`;
+                    vmBs[vmNode] = { bsList: [], erNodes: [] };
+                }
+                vmBs[vmNode].bsList = [...new Set([...vmBs[vmNode].bsList, ...bsList])];
+                vmBs[vmNode].erNodes.push(erNode);
+            });
+
+            // Nœud BS agrégé par VM
+            Object.entries(vmBs).forEach(([vmNode, data]) => {
+                data.vmNode = vmNode;
+                if (data.bsList.length) {
+                    const bsNode = `BS_${vmNode}`;
+                    const bsLabel = ('Biens Supports<br><br>' + data.bsList.join('<br>')).replace(/["']/g, '');
+                    md += `  ${bsNode}["${bsLabel}"]:::bs\n`;
+                    md += `  ${bsNode} --> ${vmNode}\n`;
+                    data.bsNode = bsNode;
                 }
             });
-            
-            nodes.forEach(n => md += n);
-            links.forEach(l => md += l);
+
+            // Chaîne SS → SR → (PP) → (BS) → VM → ER
+            if (srNodes.length) {
+                srNodes.forEach(srNode => md += `  ${ssNode} --> ${srNode}\n`);
+
+                if (ppNode) {
+                    srNodes.forEach(srNode => md += `  ${srNode} --> ${ppNode}\n`);
+                    Object.entries(vmBs).forEach(([vmNode, data]) => {
+                        if (data.bsNode) {
+                            md += `  ${ppNode} --> ${data.bsNode}\n`;
+                        } else {
+                            md += `  ${ppNode} --> ${vmNode}\n`;
+                        }
+                    });
+                } else {
+                    Object.entries(vmBs).forEach(([vmNode, data]) => {
+                        if (data.bsNode) {
+                            srNodes.forEach(srNode => md += `  ${srNode} --> ${data.bsNode}\n`);
+                        } else {
+                            srNodes.forEach(srNode => md += `  ${srNode} --> ${vmNode}\n`);
+                        }
+                    });
+                }
+
+                // VM → ER
+                Object.values(vmBs).forEach(data => {
+                    data.erNodes.forEach(erNode => md += `  ${data.vmNode || `VM_${erNode.replace('ER_', '')}`} --> ${erNode}\n`);
+                });
+            }
 
             const box = document.getElementById('graphBox');
             box.innerHTML = `<div class="inline-block text-left"><pre class="mermaid">${md}</pre></div>`;
             document.getElementById('graphModal').classList.add('active');
-            
+
             try {
                 if(window.mermaid) {
                     mermaid.initialize({ startOnLoad: false, theme: 'dark', flowchart: { useMaxWidth: false, htmlLabels: true } });
@@ -2182,86 +2195,98 @@ ${matrixRes}
                         // === Génération Graphique Mermaid PNG pour SS ===
                         if (window.mermaid) {
                             let md = "flowchart TD\n";
-                            md += `  classDef attack fill:#fee2e2,stroke:#ef4444,color:#7f1d1d;\n`;
-                            md += `  classDef impact fill:#fef3c7,stroke:#f59e0b,color:#92400e;\n`;
                             md += `  classDef ss fill:#ede9fe,stroke:#8b5cf6,color:#4c1d95;\n`;
-                            md += `  classDef vm fill:#e0f2fe,stroke:#0ea5e9,color:#0c4a6e;\n`;
+                            md += `  classDef attack fill:#fee2e2,stroke:#ef4444,color:#7f1d1d;\n`;
+                            md += `  classDef pp fill:#e0f2fe,stroke:#0ea5e9,color:#0c4a6e;\n`;
                             md += `  classDef bs fill:#f1f5f9,stroke:#64748b,color:#0f172a;\n`;
+                            md += `  classDef vm fill:#e0f2fe,stroke:#0369a1,color:#0c4a6e;\n`;
+                            md += `  classDef impact fill:#fef3c7,stroke:#f59e0b,color:#92400e;\n`;
 
                             const ssNode = `SS_${s.id}`;
                             md += `  ${ssNode}["SS: ${s.desc.replace(/["']/g, '')}"]:::ss\n`;
 
+                            // Sources de risque
                             const srNodes = [];
-                            (s.srIds || []).forEach(sid => {
+                            (s.srIds || []).forEach((sid, idx) => {
                                 const r = D.rs.find(x => x.id === sid);
                                 if (r) {
-                                    const srNode = `SR_${r.id}`;
+                                    const srNode = `SR_${s.id}_${idx}`;
                                     const label = `SR: ${r.type}` + (r.objs && r.objs.length ? `\\nOV: ${r.objs.join(', ')}` : '');
                                     md += `  ${srNode}["${label.replace(/["']/g, '')}"]:::attack\n`;
                                     srNodes.push(srNode);
                                 }
                             });
 
-                            const ppNodes = [];
-                            if (s.ppIds && s.ppIds.length > 0) {
-                                s.ppIds.forEach(pid => {
-                                    const p = D.pp.find(x => x.id === pid);
-                                    if (p) {
-                                        const ppNode = `PP_${p.id}`;
-                                        md += `  ${ppNode}["PP: ${p.name.replace(/["']/g, '')}"]:::bs\n`;
-                                        ppNodes.push(ppNode);
-                                    }
-                                });
+                            // Parties prenantes (agrégées dans un seul nœud)
+                            const ppIds = s.ppIds || [s.pp].filter(Boolean);
+                            const ppNames = ppIds.map(pid => { const p = D.pp.find(x => x.id === pid); return p ? p.name : null; }).filter(Boolean);
+                            const ppNode = ppNames.length ? `PP_${s.id}` : null;
+                            if (ppNode) {
+                                const ppLabel = ('PP (optionnel)\\n\\n' + ppNames.join('\\n')).replace(/["']/g, '');
+                                md += `  ${ppNode}["${ppLabel}"]:::pp\n`;
                             }
 
-                            if (srNodes.length > 0) {
-                                srNodes.forEach(srNode => {
-                                    if (ppNodes.length > 0) {
-                                        ppNodes.forEach(ppNode => md += `  ${srNode} --> ${ppNode}\n`);
-                                    } else {
-                                        md += `  ${srNode} --> ${ssNode}\n`;
-                                    }
-                                });
-                                if (ppNodes.length > 0) {
-                                    ppNodes.forEach(ppNode => md += `  ${ppNode} --> ${ssNode}\n`);
-                                }
-                            }
-
+                            // Biens supports par VM
+                            const vmBs = {};
                             const erIds = s.erIds || [s.fe];
-                            const nodes = new Set();
-                            const links = new Set();
-                            
                             erIds.filter(Boolean).forEach(eid => {
                                 const f = D.fe.find(x => x.id === eid);
-                                if (f) {
-                                    const erNode = `ER_${f.id}`;
-                                    nodes.add(`  ${erNode}["ER: ${f.desc.replace(/["']/g, '')}"]:::impact\n`);
-                                    
-                                    const b = D.bv.find(x => x.id === f.bv);
-                                    if (b) {
-                                        const vmNode = `VM_${b.id}`;
-                                        nodes.add(`  ${vmNode}["VM: ${b.name.replace(/["']/g, '')}"]:::vm\n`);
-                                        links.add(`  ${vmNode} --> ${erNode}\n`);
-                                        
-                                        const bsList = (b.support || '').split(',').map(x => x.trim()).filter(Boolean);
-                                        if (bsList.length > 0) {
-                                            bsList.forEach((bsName, idx) => {
-                                                const bsNode = `BS_${b.id}_${idx}`;
-                                                nodes.add(`  ${bsNode}["BS: ${bsName.replace(/["']/g, '')}"]:::bs\n`);
-                                                links.add(`  ${bsNode} --> ${vmNode}\n`);
-                                                links.add(`  ${ssNode} --> ${bsNode}\n`);
-                                            });
-                                        } else {
-                                            links.add(`  ${ssNode} --> ${vmNode}\n`);
-                                        }
-                                    } else {
-                                        links.add(`  ${ssNode} --> ${erNode}\n`);
-                                    }
+                                if (!f) return;
+                                const erNode = `ER_${f.id}`;
+                                md += `  ${erNode}["ER: ${f.desc.replace(/["']/g, '')}"]:::impact\n`;
+
+                                const b = D.bv.find(x => x.id === f.bv);
+                                if (!b) return;
+
+                                const vmNode = `VM_${b.id}`;
+                                const bsList = (b.support || '').split(',').map(x => x.trim()).filter(Boolean);
+                                if (!vmBs[vmNode]) {
+                                    md += `  ${vmNode}["VM: ${b.name.replace(/["']/g, '')}"]:::vm\n`;
+                                    vmBs[vmNode] = { bsList: [], erNodes: [] };
+                                }
+                                vmBs[vmNode].bsList = [...new Set([...vmBs[vmNode].bsList, ...bsList])];
+                                vmBs[vmNode].erNodes.push(erNode);
+                            });
+
+                            // Nœud BS agrégé par VM
+                            Object.entries(vmBs).forEach(([vmNode, data]) => {
+                                data.vmNode = vmNode;
+                                if (data.bsList.length) {
+                                    const bsNode = `BS_${vmNode}`;
+                                    const bsLabel = ('Biens Supports\\n\\n' + data.bsList.join('\\n')).replace(/["']/g, '');
+                                    md += `  ${bsNode}["${bsLabel}"]:::bs\n`;
+                                    md += `  ${bsNode} --> ${vmNode}\n`;
+                                    data.bsNode = bsNode;
                                 }
                             });
-                            
-                            nodes.forEach(n => md += n);
-                            links.forEach(l => md += l);
+
+                            // Chaîne SS → SR → (PP) → (BS) → VM → ER
+                            if (srNodes.length) {
+                                srNodes.forEach(srNode => md += `  ${ssNode} --> ${srNode}\n`);
+
+                                if (ppNode) {
+                                    srNodes.forEach(srNode => md += `  ${srNode} --> ${ppNode}\n`);
+                                    Object.entries(vmBs).forEach(([vmNode, data]) => {
+                                        if (data.bsNode) {
+                                            md += `  ${ppNode} --> ${data.bsNode}\n`;
+                                        } else {
+                                            md += `  ${ppNode} --> ${vmNode}\n`;
+                                        }
+                                    });
+                                } else {
+                                    Object.entries(vmBs).forEach(([vmNode, data]) => {
+                                        if (data.bsNode) {
+                                            srNodes.forEach(srNode => md += `  ${srNode} --> ${data.bsNode}\n`);
+                                        } else {
+                                            srNodes.forEach(srNode => md += `  ${srNode} --> ${vmNode}\n`);
+                                        }
+                                    });
+                                }
+
+                                Object.values(vmBs).forEach(data => {
+                                    data.erNodes.forEach(erNode => md += `  ${data.vmNode} --> ${erNode}\n`);
+                                });
+                            }
 
                             try {
                                 const id = 'merss_' + Date.now() + Math.floor(Math.random()*1000);
