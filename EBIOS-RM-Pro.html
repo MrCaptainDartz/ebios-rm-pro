@@ -1030,6 +1030,28 @@ ${s.desc ? `<p class="text-white text-sm bg-slate-800/50 p-2 rounded">${esc(s.de
         }
 
         // ============ ATELIER 4 ============
+        function renderOSPP(ssSelectId, boxId) {
+            const ssId = +document.getElementById(ssSelectId)?.value;
+            const box = document.getElementById(boxId);
+            if (!box) return;
+            const ss = D.ss.find(s => s.id === ssId);
+            const ppIds = ss?.ppIds || [ss?.pp].filter(Boolean) || [];
+            if (!ppIds.length) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+            const checkedPPs = boxId === 'osPPBox' ? [] : (D.os.find(o => o.id === editI)?.ppIds || []);
+            const directChecked = boxId === 'osPPBox' ? true : (checkedPPs.includes('direct') || checkedPPs.length === 0);
+            box.innerHTML = `<div class="text-slate-400 text-xs mb-2">Parties prenantes (optionnel)</div>
+                <label class="flex items-center gap-1 text-white text-xs py-0.5 cursor-pointer hover:bg-slate-800 px-1 rounded mb-1"><input type="checkbox" class="osPPDirect" value="direct" ${directChecked ? 'checked' : ''}> <span class="text-cyan-400">Aucune (en direct)</span></label>
+                ${ppIds.map(pid => { const p = D.pp.find(x => x.id === pid); if (!p) return ''; const pi = D.pp.indexOf(p); const checked = checkedPPs.includes(pid) ? 'checked' : ''; return `<label class="flex items-center gap-1 text-white text-xs py-0.5 cursor-pointer hover:bg-slate-800 px-1 rounded"><input type="checkbox" class="osPP" value="${p.id}" ${checked}>PP${pi + 1}: ${esc(p.name)}</label>`; }).join('')}`;
+            box.classList.remove('hidden');
+            // Force 'direct' checked when no PP selected
+            const updateDirect = () => {
+                const direct = box.querySelector('.osPPDirect');
+                const pps = box.querySelectorAll('.osPP:checked');
+                if (direct && pps.length === 0) { direct.checked = true; }
+            };
+            box.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.addEventListener('change', updateDirect));
+        }
+
         function checkPPThreat(ssSelectId, vSelectId, warningDivId) {
             const ssId = +document.getElementById(ssSelectId)?.value;
             const v = parseInt(document.getElementById(vSelectId)?.value);
@@ -1055,13 +1077,15 @@ ${s.desc ? `<p class="text-white text-sm bg-slate-800/50 p-2 rounded">${esc(s.de
 <div class="bg-slate-900/50 rounded-lg p-3 mb-3"><div class="grid grid-cols-4 gap-2">${BDC.vrais.map(v => `<div class="p-2 rounded border text-center" style="background:${v.c}15;border-color:${v.c}50"><span class="font-bold text-white text-sm">${v.id}</span> <span class="text-white text-xs">${v.n}</span></div>`).join('')}</div></div>
 ${D.ss.length === 0 ? '<div class="bg-yellow-500/20 border border-yellow-500 rounded-lg p-3 mb-3 text-yellow-300 text-sm">⚠️ Créez des scénarios stratégiques (Atelier 3)</div>' : ''}
 <div class="grid md:grid-cols-3 gap-2 mb-1">
-<select id="osS" onchange="checkPPThreat('osS', 'osV', 'osWarning')" class="bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm"><option value="">-- Scénario Stratégique --</option>
+<select id="osS" onchange="renderOSPP('osS','osPPBox')" class="bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm"><option value="">-- Scénario Stratégique --</option>
 ${D.ss.map((s, i) => `<option value="${s.id}">SS${i + 1} – ${s.desc}</option>`).join('')}
 </select>
-<select id="osV" onchange="checkPPThreat('osS', 'osV', 'osWarning')" class="bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm">${BDC.vrais.map(v => `<option value="${v.id.charAt(1)}" style="color:${v.c}">${v.id} - ${v.n}</option>`).join('')}</select>
+<select id="osV" onchange="checkPPThreat('osS', 'osV', 'osWarning')" class="bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm">${BDC.vrais.map(v => `<option value="${v.id.charAt(1)}" style="color:${v.c}">${v.id} - ${v.n}</option>`).join('')}
+</select>
 <button onclick="addOS()" class="btn btn-orange text-sm">+ Créer Scénario</button>
 </div>
 <div id="osWarning" class="text-orange-400 text-xs mb-3 hidden"></div>
+<div id="osPPBox" class="bg-slate-900 border border-slate-600 rounded-lg p-2 mb-3 hidden"></div>
 <textarea id="osD" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm mb-3" rows="2" placeholder="Description du mode opératoire..."></textarea>
 </section>
 
@@ -1110,43 +1134,66 @@ ${o.desc ? `<p class="text-white text-sm mb-2 bg-slate-800/50 p-2 rounded">${esc
             if (!o) return;
             const ss = D.ss.find(s => s.id === o.ss);
             const srCodes = ss ? (ss.srIds || []).map(sid => { const rs = D.rs.find(x => x.id === sid); return rs ? rs.type + (rs.objs && rs.objs.length ? `<br><i>(OV: ${rs.objs.join(', ')})</i>` : '') : ''; }).filter(Boolean).join('<br><br>') : 'Source Inconnue';
-            const ppCodes = ss ? (ss.ppIds || ss.pp || []).map(pid => D.pp.find(x => x.id === pid)?.name || '').filter(Boolean).join('<br>') : '';
             const erCodes = ss ? (ss.erIds || ss.fe || []).map(eid => D.fe.find(x => x.id === eid)?.desc || '').filter(Boolean).join('<br>') : 'Événement Redouté';
-            
+
+            // PP choisies pour ce SO
+            const osPP = (o.ppIds || []).filter(pid => pid !== 'direct');
+            const directEnabled = (o.ppIds || []).includes('direct');
+            const ppCodes = osPP.map(pid => D.pp.find(x => x.id === pid)?.name || '').filter(Boolean).join('<br>');
+
             let md = "flowchart TD\n";
             md += `  classDef attack fill:#fee2e2,stroke:#ef4444,color:#7f1d1d;\n`;
             md += `  classDef impact fill:#fef3c7,stroke:#f59e0b,color:#92400e;\n`;
-            
+
             md += `  SR["${srCodes.replace(/["']/g, '')}"]:::attack\n`;
-            let prev = "SR";
+            let prevDirect = "SR";
+            let prevPP = null;
+
             if (ppCodes) {
                 const ppLabel = `<b>Via Parties Prenantes :</b><br>${ppCodes.replace(/["']/g, '')}`;
                 md += `  PP["${ppLabel}"]\n`;
                 md += `  style PP fill:#f8fafc,stroke:#0ea5e9,stroke-width:3px,color:#0f172a\n`;
-                md += `  ${prev} --> PP\n`;
-                prev = "PP";
+                md += `  SR --> PP\n`;
+                prevPP = "PP";
             }
+
             if (o.actions && o.actions.length > 0) {
                 const phases = [[], [], [], []];
                 o.actions.forEach(a => {
                     phases[mitrePhase(a.tactic)].push(a);
                 });
                 const sortedActions = [...phases[0], ...phases[1], ...phases[2], ...phases[3]];
+
+                // Lien direct SR -> A0 (si "Aucune" coché)
+                if (directEnabled) {
+                    md += `  ${prevDirect} --> A0\n`;
+                }
+                // Lien PP -> A0 (si PP sélectionnées)
+                if (prevPP) {
+                    md += `  ${prevPP} --> A0\n`;
+                }
+
                 sortedActions.forEach((a, i) => {
                     const label = `${a.technique}${a.bs ? `<br>[ ${a.bs} ]` : ''}`;
                     md += `  A${i}["${label.replace(/["']/g, '')}"]\n`;
                     md += `  style A${i} fill:#f8fafc,stroke:${a.color || '#64748b'},stroke-width:3px,color:#0f172a\n`;
-                    md += `  ${prev} --> A${i}\n`;
-                    prev = `A${i}`;
+                    if (i > 0) {
+                        md += `  A${i - 1} --> A${i}\n`;
+                    }
                 });
+                prevDirect = `A${sortedActions.length - 1}`;
+                prevPP = prevPP ? `A${sortedActions.length - 1}` : null;
             }
             md += `  ER["${erCodes.replace(/["']/g, '')}"]:::impact\n`;
-            md += `  ${prev} --> ER\n`;
-            
+            md += `  ${prevDirect} --> ER\n`;
+            if (prevPP) {
+                md += `  ${prevPP} --> ER\n`;
+            }
+
             const box = document.getElementById('graphBox');
             box.innerHTML = `<div class="inline-block text-left"><pre class="mermaid">${md}</pre></div>`;
             document.getElementById('graphModal').classList.add('active');
-            
+
             try {
                 if(window.mermaid) {
                     mermaid.initialize({ startOnLoad: false, theme: 'dark', flowchart: { useMaxWidth: false, htmlLabels: true } });
@@ -1719,7 +1766,25 @@ ${matrixRes}
         }
         function delSS(id) { D.ss = D.ss.filter(x => x.id !== id); save(); render(); }
 
-        function addOS() { const ss = document.getElementById('osS').value; if (!ss) return alert('SS requis'); const desc = sanitizeStr(document.getElementById('osD').value, 1000); D.os.push({ id: gid(), ss: +ss, v: document.getElementById('osV').value, desc: desc, actions: [] }); document.getElementById('osD').value = ''; if(document.getElementById('osWarning')) document.getElementById('osWarning').classList.add('hidden'); save(); render(); }
+        function addOS() {
+            const ss = document.getElementById('osS').value;
+            if (!ss) return alert('SS requis');
+            const desc = sanitizeStr(document.getElementById('osD').value, 1000);
+            const ppBox = document.getElementById('osPPBox');
+            let ppIds = [];
+            if (ppBox && !ppBox.classList.contains('hidden')) {
+                const direct = ppBox.querySelector('.osPPDirect')?.checked;
+                ppIds = [...ppBox.querySelectorAll('.osPP:checked')].map(c => +c.value);
+                if (direct) ppIds.unshift('direct');
+                else if (ppIds.length === 0) ppIds.unshift('direct');
+            } else {
+                ppIds = ['direct'];
+            }
+            D.os.push({ id: gid(), ss: +ss, v: document.getElementById('osV').value, desc: desc, ppIds: ppIds, actions: [] });
+            document.getElementById('osD').value = '';
+            if(document.getElementById('osWarning')) document.getElementById('osWarning').classList.add('hidden');
+            save(); render();
+        }
         function delOS(id) { D.os = D.os.filter(x => x.id !== id); save(); render(); }
         function updateActionBS(osId, ai, val) { const o = D.os.find(x => x.id === osId); if (o && o.actions[ai]) o.actions[ai].bs = val; save(); }
 
@@ -1811,13 +1876,14 @@ ${matrixRes}
             editT = 'os'; editI = id; const item = D.os.find(x => x.id === id);
             document.getElementById('editTitle').textContent = 'Modifier Scénario Opérationnel';
             document.getElementById('editBody').innerHTML = `<div class="space-y-3">
-<div><label class="text-slate-400 text-xs">Scénario Stratégique</label><select id="eSS" onchange="checkPPThreat('eSS', 'eV', 'eOSWarning')" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white mt-1">${D.ss.map((s, i) => `<option value="${s.id}" ${s.id === item.ss ? 'selected' : ''}>SS${i + 1} - ${s.desc}</option>`).join('')}</select></div>
+<div><label class="text-slate-400 text-xs">Scénario Stratégique</label><select id="eSS" onchange="renderOSPP('eSS','eOSPPBox')" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white mt-1">${D.ss.map((s, i) => `<option value="${s.id}" ${s.id === item.ss ? 'selected' : ''}>SS${i + 1} - ${s.desc}</option>`).join('')}</select></div>
 <div><label class="text-slate-400 text-xs">Vraisemblance</label><select id="eV" onchange="checkPPThreat('eSS', 'eV', 'eOSWarning')" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white mt-1">${BDC.vrais.map(v => `<option value="${v.id.charAt(1)}" ${v.id.charAt(1) === item.v ? 'selected' : ''}>${v.id} - ${v.n}</option>`).join('')}</select></div>
 <div id="eOSWarning" class="text-orange-400 text-xs mt-1 hidden"></div>
+<div id="eOSPPBox" class="bg-slate-900 border border-slate-600 rounded-lg p-2 mt-1"></div>
 <div><label class="text-slate-400 text-xs">Description</label><textarea id="eDesc" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white mt-1" rows="2">${esc(item.desc || '')}</textarea></div>
 </div>`;
             document.getElementById('editModal').classList.add('active');
-            setTimeout(() => checkPPThreat('eSS', 'eV', 'eOSWarning'), 10);
+            setTimeout(() => { renderOSPP('eSS', 'eOSPPBox'); checkPPThreat('eSS', 'eV', 'eOSWarning'); }, 10);
         }
 
         function editMeasure(id) {
@@ -1849,7 +1915,18 @@ ${matrixRes}
                 if (!desc) return alert('La description du scénario stratégique est obligatoire');
                 item.srIds = srIds; item.ppIds = [...document.querySelectorAll('.ePP:checked')].map(c => +c.value); item.erIds = erIds; item.g = String(calcSSGravity(erIds)); item.desc = desc;
             }
-            else if (editT === 'os') { const item = D.os.find(x => x.id === editI); item.ss = +document.getElementById('eSS').value; item.v = document.getElementById('eV').value; item.desc = sanitizeStr(document.getElementById('eDesc').value, 1000); }
+            else if (editT === 'os') {
+                const item = D.os.find(x => x.id === editI);
+                item.ss = +document.getElementById('eSS').value;
+                item.v = document.getElementById('eV').value;
+                item.desc = sanitizeStr(document.getElementById('eDesc').value, 1000);
+                const ppBox = document.getElementById('eOSPPBox');
+                const direct = ppBox?.querySelector('.osPPDirect')?.checked;
+                let ppIds = [...ppBox.querySelectorAll('.osPP:checked')].map(c => +c.value);
+                if (direct) ppIds.unshift('direct');
+                else if (ppIds.length === 0) ppIds.unshift('direct');
+                item.ppIds = ppIds;
+            }
             else if (editT === 'measure') { const item = D.measures.find(x => x.id === editI); const m = sanitizeStr(document.getElementById('eMeasure').value, 500); if (hasInjection(m)) return alert('Mesure invalide'); item.riskIds = [...document.querySelectorAll('.eRisk:checked')].map(c => +c.value); item.cat = document.getElementById('eCat').value; item.measure = m; item.resp = sanitizeStr(document.getElementById('eResp').value, 100); item.jalon = sanitizeNum(document.getElementById('eJalon').value); }
             else if (editT === 'rr') { const item = D.risquesResiduels.find(x => x.id === editI); const j = sanitizeStr(document.getElementById('eRRJust').value, 500); if (hasInjection(j)) return alert('Justification invalide'); const dec = document.getElementById('eRRDec').value; if (!dec) return alert('Sélectionnez une décision de traitement'); const trans = sanitizeStr(document.getElementById('eRRTrans').value, 200); if (hasInjection(trans)) return alert('Caractères non autorisés'); if (dec === 'transféré' && !trans) return alert('Indiquez la cible du transfert'); if ((dec === 'éviter' || dec === 'réduit') && !D.measures.some(m => (m.riskIds || [m.risk].filter(Boolean)).includes(item.riskId))) { if (!confirm('Aucune mesure PACS liée à ce risque. Continuer ?')) return; } item.gRes = sanitizeNum(document.getElementById('eRRG').value); item.vRes = sanitizeNum(document.getElementById('eRRV').value); item.jalon = document.getElementById('eRRJ').value ? sanitizeNum(document.getElementById('eRRJ').value) : 0; item.justification = j; item.decision = dec; item.transferTarget = trans; }
             closeEdit(); save(); render();
@@ -2374,37 +2451,52 @@ ${matrixRes}
                         // === Génération Graphique Mermaid PNG ===
                         if (window.mermaid) {
                             const msr = ss ? (ss.srIds || []).map(sid => { const r = D.rs.find(x => x.id === sid); return r ? r.type + (r.objs && r.objs.length ? ` (OV: ${r.objs.join(', ')})` : '') : ''; }).filter(Boolean).join('\\n') : 'Source Inconnue';
-                            const mpp = ss ? (ss.ppIds || ss.pp || []).map(pid => D.pp.find(x => x.id === pid)?.name || '').filter(Boolean).join('\\n') : '';
                             const mer = ss ? (ss.erIds || ss.fe || []).map(eid => D.fe.find(x => x.id === eid)?.desc || '').filter(Boolean).join('\\n') : 'Événement Redouté';
-                            
+
+                            // PP choisies pour ce SO
+                            const osPP = (o.ppIds || []).filter(pid => pid !== 'direct');
+                            const directEnabled = (o.ppIds || []).includes('direct');
+                            const mpp = osPP.map(pid => D.pp.find(x => x.id === pid)?.name || '').filter(Boolean).join('\\n');
+
                             let md = "flowchart TD\n";
                             md += `  classDef attack fill:#fee2e2,stroke:#ef4444,color:#7f1d1d;\n`;
                             md += `  classDef impact fill:#fef3c7,stroke:#f59e0b,color:#92400e;\n`;
-                            
+
                             md += `  SR["${msr.replace(/["']/g, '')}"]:::attack\n`;
-                            let prev = "SR";
+                            let prevDirect = "SR";
+                            let prevPP = null;
+
                             if (mpp) {
                                 md += `  PP["Via Parties Prenantes:\\n${mpp.replace(/["']/g, '')}"]\n`;
                                 md += `  style PP fill:#f8fafc,stroke:#0ea5e9,stroke-width:3px,color:#0f172a\n`;
-                                md += `  ${prev} --> PP\n`;
-                                prev = "PP";
+                                md += `  SR --> PP\n`;
+                                prevPP = "PP";
                             }
+
                             if (o.actions && o.actions.length > 0) {
                                 const phases = [[], [], [], []];
                                 o.actions.forEach(a => {
                                     phases[mitrePhase(a.tactic)].push(a);
                                 });
                                 const sortedActions = [...phases[0], ...phases[1], ...phases[2], ...phases[3]];
+
+                                if (directEnabled) md += `  ${prevDirect} --> A0\n`;
+                                if (prevPP) md += `  ${prevPP} --> A0\n`;
+
                                 sortedActions.forEach((a, k) => {
                                     const label = `${a.technique}${a.bs ? `\\n[ ${a.bs} ]` : ''}`;
                                     md += `  A${k}["${label.replace(/["']/g, '')}"]\n`;
                                     md += `  style A${k} fill:#f8fafc,stroke:${a.color || '#64748b'},stroke-width:3px,color:#0f172a\n`;
-                                    md += `  ${prev} --> A${k}\n`;
-                                    prev = `A${k}`;
+                                    if (k > 0) {
+                                        md += `  A${k - 1} --> A${k}\n`;
+                                    }
                                 });
+                                prevDirect = `A${sortedActions.length - 1}`;
+                                prevPP = prevPP ? `A${sortedActions.length - 1}` : null;
                             }
                             md += `  ER["${mer.replace(/["']/g, '')}"]:::impact\n`;
-                            md += `  ${prev} --> ER\n`;
+                            md += `  ${prevDirect} --> ER\n`;
+                            if (prevPP) md += `  ${prevPP} --> ER\n`;
                             
                             try {
                                 const id = 'mer_' + Date.now() + Math.floor(Math.random()*1000);
