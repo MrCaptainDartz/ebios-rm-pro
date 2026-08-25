@@ -539,6 +539,22 @@
             const s = String(str);
             return s.length > len ? s.substring(0, len) + '...' : s;
         }
+        function wrapLabel(str, maxLen = 50) {
+            if (!str) return '';
+            const words = String(str).split(' ');
+            const lines = [];
+            let current = '';
+            words.forEach(w => {
+                if ((current + ' ' + w).trim().length > maxLen) {
+                    if (current) lines.push(current);
+                    current = w.length > maxLen ? w.substring(0, maxLen) : w;
+                } else {
+                    current = (current + ' ' + w).trim();
+                }
+            });
+            if (current) lines.push(current);
+            return lines.join('\\n');
+        }
 
         // Validation de chaîne (longueur max, caractères autorisés)
         function sanitizeStr(str, maxLen = 500) {
@@ -874,27 +890,11 @@ ${D.objectifsVises.includes(o) ? `<button onclick="delObjectif('${o.replace(/'/g
 </div>
 
 <section class="card mb-4">
-<h3 class="text-white font-bold mb-3">🔗 Créer Couple SR/OV</h3>
-<div class="grid md:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
-<div>
-<label class="text-slate-400 text-xs">Source de Risque</label>
-<select id="rsT" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm mt-1">${allSources.map((s, i) => `<option value="${s}">SR${i + 1}: ${s}</option>`).join('')}</select>
+<div class="flex items-center justify-between mb-3">
+<h3 class="text-white font-bold">📋 Couples SR/OV (${D.rs.length})</h3>
+<button onclick="openRSModal()" class="btn btn-orange text-sm">+ Créer Couple SR/OV</button>
 </div>
-<div class="lg:col-span-2">
-<label class="text-slate-400 text-xs">Objectifs Visés (multi)</label>
-<div class="bg-slate-900 border border-slate-600 rounded-lg p-2 mt-1 max-h-24 overflow-y-auto">${allObjectifs.map((o, i) => `<label class="flex items-center gap-1 text-white text-xs py-0.5 cursor-pointer hover:bg-slate-800 px-1 rounded"><input type="checkbox" class="rsO" value="${o}"><span class="text-purple-400 font-mono mr-1">OV${i + 1}</span>${o}</label>`).join('')}</div>
-</div>
-<div class="space-y-2">
-<div><label class="text-slate-400 text-xs">Motivation</label><select id="rsM" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm mt-1">${BDC.motivation.map(m => `<option value="${m.v}" style="color:${m.c}" ${m.v === 3 ? 'selected' : ''}>${m.v} - ${m.n}</option>`).join('')}</select></div>
-<div><label class="text-slate-400 text-xs">Ressources</label><select id="rsR" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm mt-1">${BDC.ressources.map(r => `<option value="${r.v}" style="color:${r.c}" ${r.v === 2 ? 'selected' : ''}>${r.v} - ${r.n}</option>`).join('')}</select></div>
-</div>
-</div>
-<button onclick="addRS()" class="btn btn-orange text-sm">+ Créer Couple SR/OV</button>
-</section>
-
-<section class="card mb-4">
-<h3 class="text-white font-bold mb-3">📋 Récapitulatif Couples SR/OV (${D.rs.length})</h3>
-${D.rs.length ? `<div class="table-container"><table><thead><tr><th>ID</th><th>Source de Risque</th><th>Objectifs Visés</th><th>M</th><th>R</th><th>Pertinence</th><th>Retenu</th><th class="w-20"></th></tr></thead><tbody>${D.rs.map((r, i) => { const p = PERT[r.mot + '-' + r.res] || '?'; const pc = p === 'Élevé' ? 'bg-red-500/20 text-red-300' : p === 'Moyen' ? 'bg-yellow-500/20 text-yellow-300' : 'bg-green-500/20 text-green-300'; return `<tr><td class="text-orange-400 font-mono font-bold">C${i + 1}</td><td class="text-white">${r.type}</td><td class="text-white text-xs max-w-[200px]">${(r.objs || []).join(', ')}</td><td class="text-center"><span style="color:${getLvlColor(r.mot)}" class="font-bold">${r.mot}</span></td><td class="text-center"><span style="color:${getLvlColor(r.res)}" class="font-bold">${r.res}</span></td><td class="text-center"><span class="badge ${pc}">${p}</span></td><td class="text-center"><input type="checkbox" ${r.retained ? 'checked' : ''} onchange="D.rs.find(x=>x.id===${r.id}).retained=this.checked;save();render()"></td><td><button onclick="editRS(${r.id})" class="text-blue-400 hover:text-blue-300 mr-1">✏️</button><button onclick="delRS(${r.id})" class="text-red-400">🗑️</button></td></tr>`; }).join('')}</tbody></table></div>` : '<div class="text-center py-6 text-slate-500">Aucun couple SR/OV créé</div>'}
+${D.rs.length ? `<div class="table-container"><table><thead><tr><th>ID</th><th>Source de Risque</th><th>Objectifs Visés</th><th>M</th><th>R</th><th>Pertinence</th><th>Retenu</th><th class="w-20"></th></tr></thead><tbody>${D.rs.map((r, i) => { const p = PERT[r.mot + '-' + r.res] || '?'; const pc = p === 'Élevé' ? 'bg-red-500/20 text-red-300' : p === 'Moyen' ? 'bg-yellow-500/20 text-yellow-300' : 'bg-green-500/20 text-green-300'; return `<tr><td class="text-orange-400 font-mono font-bold">C${i + 1}</td><td class="text-white">${r.type}</td><td class="text-white text-xs max-w-[200px]">${(r.objs || []).join(', ')}</td><td class="text-center"><span style="color:${getLvlColor(r.mot)}" class="font-bold">${r.mot}</span></td><td class="text-center"><span style="color:${getLvlColor(r.res)}" class="font-bold">${r.res}</span></td><td class="text-center"><span class="badge ${pc}">${p}</span></td><td class="text-center"><input type="checkbox" ${r.retained ? 'checked' : ''} onchange="D.rs.find(x=> x.id===${r.id}).retained=this.checked;save();render()"></td><td><button onclick="openRSModal(${r.id})" class="text-blue-400 hover:text-blue-300 mr-1">✏️</button><button onclick="delRS(${r.id})" class="text-red-400">🗑️</button></td></tr>`; }).join('')}</tbody></table></div>` : '<div class="text-center py-6 text-slate-500">Aucun couple SR/OV créé</div>'}
 </section>
 
 <section class="card">
@@ -967,43 +967,20 @@ ${Object.entries(BDC.echelles).map(([k, v]) => `<div><span class="text-cyan-400 
 </section>
 
 <section class="card">
-<h3 class="text-white font-bold mb-3">🔀 Scénarios Stratégiques</h3>
+<div class="flex items-center justify-between mb-3">
+<h3 class="text-white font-bold">🔀 Scénarios Stratégiques (${D.ss.length})</h3>
+${retSR.length > 0 ? `<button onclick="openSSModal()" class="btn btn-purple text-sm">+ Créer Scénario Stratégique</button>` : ''}
+</div>
 <p class="text-slate-400 text-xs mb-3">Chemin: Couple(s) SR/OV → [PP(s)] → ER(s) - Sélection multiple possible</p>
-${retSR.length === 0 ? '<div class="bg-yellow-500/20 border border-yellow-500 rounded-lg p-3 mb-3 text-yellow-300 text-sm">⚠️ Cochez "Retenu" sur les SR dans l\'Atelier 2</div>' : ''}
+${retSR.length === 0 ? `<div class="bg-yellow-500/20 border border-yellow-500 rounded-lg p-3 mb-3 text-yellow-300 text-sm">⚠️ Cochez "Retenu" sur les SR dans l'Atelier 2</div>` : ''}
 
-<div class="grid md:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
-<div>
-<label class="text-slate-400 text-xs">Couples SR/OV retenus (multi)</label>
-<div class="bg-slate-900 border border-slate-600 rounded-lg p-2 mt-1 max-h-32 overflow-y-auto">
-${retSR.map(r => { const ri = D.rs.indexOf(r); return `<label class="flex items-center gap-1 text-white text-xs py-0.5 cursor-pointer hover:bg-slate-800 px-1 rounded"><input type="checkbox" class="ssRS" value="${r.id}" onchange="refreshSSGrav('ssRS','ssER','ssGDisp')">C${ri + 1}: ${r.type} ${(r.objs && r.objs.length) ? '→ ' + r.objs.join(', ') : ''}</label>`; }).join('') || '<span class="text-slate-500 text-xs">Aucun couple SR/OV retenu</span>'}
-</div>
-</div>
-<div>
-<label class="text-slate-400 text-xs">PP (multi, optionnel)</label>
-<div class="bg-slate-900 border border-slate-600 rounded-lg p-2 mt-1 max-h-32 overflow-y-auto">
-${D.pp.map((p, i) => `<label class="flex items-center gap-1 text-white text-xs py-0.5 cursor-pointer hover:bg-slate-800 px-1 rounded"><input type="checkbox" class="ssPP" value="${p.id}">PP${i + 1}: ${esc(p.name)}</label>`).join('') || '<span class="text-slate-500 text-xs">Aucune PP</span>'}
-</div>
-</div>
-<div>
-<label class="text-slate-400 text-xs">ER (multi)</label>
-<div class="bg-slate-900 border border-slate-600 rounded-lg p-2 mt-1 max-h-32 overflow-y-auto">
-${D.fe.map((f, i) => `<label class="flex items-center gap-1 text-white text-xs py-0.5 cursor-pointer hover:bg-slate-800 px-1 rounded"><input type="checkbox" class="ssER" value="${f.id}" onchange="refreshSSGrav('ssRS','ssER','ssGDisp')">ER${i + 1}: ${f.desc.substring(0, 20)}...</label>`).join('') || '<span class="text-slate-500 text-xs">Aucun ER</span>'}
-</div>
-</div>
-<div>
-<label class="text-slate-400 text-xs">Gravité (max des ER)</label>
-<div id="ssGDisp" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm mt-1" style="opacity:.7">—</div>
-<button onclick="addSS()" class="btn btn-purple text-sm w-full mt-2">+ Ajouter SS</button>
-</div>
-</div>
-<textarea id="ssD" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm mb-3" rows="2" placeholder="Description du scénario... *" required></textarea>
 ${D.ss.length ? `<div class="space-y-2">${D.ss.map((s, i) => {
                 const srList = (s.srIds || []).map(sid => { const r = D.rs.find(x => x.id === sid); return r ? `C${D.rs.indexOf(r) + 1}: ${trunc(r.type)}` : null; }).filter(Boolean).join(', ') || '-';
                 const ppList = (s.ppIds || [s.pp]).filter(Boolean).map(pid => { const p = D.pp.find(x => x.id === pid); return p ? `PP${D.pp.indexOf(p) + 1}: ${trunc(esc(p.name))}` : null; }).filter(Boolean).join(', ') || '-';
                 const erList = (s.erIds || [s.fe]).map(eid => { const f = D.fe.find(x => x.id === eid); return f ? `ER${D.fe.indexOf(f) + 1}: ${trunc(f.desc)}` : null; }).filter(Boolean).join(', ') || '-';
                 const g = parseInt(s.g);
                 return `<div class="p-3 rounded-lg bg-slate-900/50 border border-slate-700">
-<div class="flex items-center justify-between mb-2"><div class="flex items-center gap-2 flex-wrap"><span class="text-purple-400 font-mono font-bold text-xs">SS${i + 1}</span><span class="badge" style="background:${BDC.gravites[g - 1]?.c || '#666'}">G${s.g}</span></div><div><button onclick="editSS(${s.id})" class="text-blue-400 text-xs mr-1">✏️</button><button onclick="delSS(${s.id})" class="text-red-400 text-xs">🗑️</button></div></div>
+<div class="flex items-center justify-between mb-2"><div class="flex items-center gap-2 flex-wrap"><span class="text-purple-400 font-mono font-bold text-xs">SS${i + 1}</span><span class="badge" style="background:${BDC.gravites[g - 1]?.c || '#666'}">G${s.g}</span></div><div><button onclick="openSSModal(${s.id})" class="text-blue-400 text-xs mr-1">✏️</button><button onclick="delSS(${s.id})" class="text-red-400 text-xs">🗑️</button></div></div>
 <div class="text-xs text-slate-400 mb-2"><span class="text-red-400">${srList}</span> <span class="text-slate-400">→</span> <span class="text-cyan-400">${ppList}</span> <span class="text-slate-400">→</span> <span class="text-orange-300">${erList}</span></div>
 ${s.desc ? `<p class="text-white text-sm bg-slate-800/50 p-2 rounded">${esc(s.desc)}</p>` : ''}
 <div class="flex items-center justify-between mt-2"><span class="text-slate-400 text-xs font-bold uppercase">Graphe d'attaque</span><button onclick="genGraphSS(${s.id})" class="text-xs text-purple-400 hover:text-purple-300 ml-auto font-bold bg-slate-800 border border-purple-500/30 px-3 py-1.5 rounded transition-colors">🗺️ Générer le Graphe</button></div>
@@ -1071,34 +1048,23 @@ ${s.desc ? `<p class="text-white text-sm bg-slate-800/50 p-2 rounded">${esc(s.de
         }
         function w4() {
             return `
-<section class="card mb-4">
-<h3 class="text-white font-bold mb-3">⚙️ Scénarios Opérationnels</h3>
-<p class="text-slate-400 text-xs mb-3">Modes opératoires: CONNAÎTRE → RENTRER → TROUVER → EXPLOITER</p>
-<div class="bg-slate-900/50 rounded-lg p-3 mb-3"><div class="grid grid-cols-4 gap-2">${BDC.vrais.map(v => `<div class="p-2 rounded border text-center" style="background:${v.c}15;border-color:${v.c}50"><span class="font-bold text-white text-sm">${v.id}</span> <span class="text-white text-xs">${v.n}</span></div>`).join('')}</div></div>
-${D.ss.length === 0 ? '<div class="bg-yellow-500/20 border border-yellow-500 rounded-lg p-3 mb-3 text-yellow-300 text-sm">⚠️ Créez des scénarios stratégiques (Atelier 3)</div>' : ''}
-<div class="grid md:grid-cols-3 gap-2 mb-1">
-<select id="osS" onchange="renderOSPP('osS','osPPBox')" class="bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm"><option value="">-- Scénario Stratégique --</option>
-${D.ss.map((s, i) => `<option value="${s.id}">SS${i + 1} – ${s.desc}</option>`).join('')}
-</select>
-<select id="osV" onchange="checkPPThreat('osS', 'osV', 'osWarning')" class="bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm">${BDC.vrais.map(v => `<option value="${v.id.charAt(1)}" style="color:${v.c}">${v.id} - ${v.n}</option>`).join('')}
-</select>
-<button onclick="addOS()" class="btn btn-orange text-sm">+ Créer Scénario</button>
-</div>
-<div id="osWarning" class="text-orange-400 text-xs mb-3 hidden"></div>
-<div id="osPPBox" class="bg-slate-900 border border-slate-600 rounded-lg p-2 mb-3 hidden"></div>
-<textarea id="osD" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm mb-3" rows="2" placeholder="Description du mode opératoire..."></textarea>
-</section>
-
 <section class="card">
-<h3 class="text-white font-bold mb-3">📋 Scénarios Opérationnels (${D.os.length})</h3>
+<div class="flex items-center justify-between mb-3">
+<h3 class="text-white font-bold">📋 Scénarios Opérationnels (${D.os.length})</h3>
+${D.ss.length > 0 ? `<button onclick="openOSModal()" class="btn btn-orange text-sm">+ Créer Scénario Opérationnel</button>` : ''}
+</div>
+${D.ss.length === 0 ? '<div class="bg-yellow-500/20 border border-yellow-500 rounded-lg p-3 mb-3 text-yellow-300 text-sm">⚠️ Créez des scénarios stratégiques (Atelier 3)</div>' : ''}
 ${D.os.length ? `<div class="space-y-3">${D.os.map((o, i) => {
                 const ss = D.ss.find(s => s.id === o.ss); const ssi = ss ? D.ss.indexOf(ss) + 1 : '?';
                 const v = parseInt(o.v);
                 const srCodes = ss ? (ss.srIds || []).map(sid => { const r = D.rs.find(x => x.id === sid); return r ? `C${D.rs.indexOf(r) + 1}: ${trunc(r.type)}` : null; }).filter(Boolean).join(', ') : '-';
-                const ppCodes = (ss?.ppIds || ss?.pp || []).map(pid => { const p = D.pp.find(x => x.id === pid); return p ? `PP${D.pp.indexOf(p) + 1}: ${trunc(esc(p.name))}` : null; }).filter(Boolean).join(', ') || '-';
+                const osPP = (o.ppIds || []).filter(pid => pid !== 'direct');
+                const direct = (o.ppIds || []).includes('direct');
+                const ppList = osPP.map(pid => { const p = D.pp.find(x => x.id === pid); return p ? `PP${D.pp.indexOf(p) + 1}: ${trunc(esc(p.name))}` : null; }).filter(Boolean);
+                const ppCodes = [direct ? 'Direct' : null, ...ppList].filter(Boolean).join(', ') || '-';
                 const erCodes = (ss?.erIds || ss?.fe || []).map(eid => { const f = D.fe.find(x => x.id === eid); return f ? `ER${D.fe.indexOf(f) + 1}: ${trunc(f.desc)}` : null; }).filter(Boolean).join(', ') || '-';
                 return `<div class="bg-slate-900/50 border border-slate-700 rounded-lg p-4">
-<div class="flex items-center justify-between mb-2"><div class="flex items-center gap-2 flex-wrap"><span class="text-orange-400 font-mono font-bold">SO${i + 1}</span><span class="badge" style="background:${BDC.vrais[v - 1]?.c || '#666'}">${BDC.vrais[v - 1]?.id || '?'}</span></div><div><button onclick="editOS(${o.id})" class="text-blue-400 text-xs mr-1">✏️</button><button onclick="delOS(${o.id})" class="text-red-400 text-xs">🗑️</button></div></div>
+<div class="flex items-center justify-between mb-2"><div class="flex items-center gap-2 flex-wrap"><span class="text-orange-400 font-mono font-bold">SO${i + 1}</span><span class="badge" style="background:${BDC.vrais[v - 1]?.c || '#666'}">${BDC.vrais[v - 1]?.id || '?'}</span></div><div><button onclick="openOSModal(${o.id})" class="text-blue-400 text-xs mr-1">✏️</button><button onclick="delOS(${o.id})" class="text-red-400 text-xs">🗑️</button></div></div>
 <div class="text-xs text-slate-400 mb-2"><span class="text-purple-400">SS${ssi}: ${trunc(ss?.desc)}</span> <span class="text-slate-400">→</span> <span class="text-red-400">${srCodes}</span> <span class="text-slate-400">→</span> <span class="text-cyan-400">${ppCodes}</span> <span class="text-slate-400">→</span> <span class="text-orange-300">${erCodes}</span></div>
 ${o.desc ? `<p class="text-white text-sm mb-2 bg-slate-800/50 p-2 rounded">${esc(o.desc)}</p>` : ''}
 <div class="flex items-center justify-between mb-2"><span class="text-slate-400 text-xs font-bold uppercase">Actions MITRE & Graphe d'attaque</span>${o.actions?.length ? `<button onclick="genGraph(${o.id})" class="text-xs text-purple-400 hover:text-purple-300 ml-auto font-bold bg-slate-800 border border-purple-500/30 px-3 py-1.5 rounded transition-colors">🗺️ Générer le Graphe</button>` : ''}</div>
@@ -1182,13 +1148,9 @@ ${o.desc ? `<p class="text-white text-sm mb-2 bg-slate-800/50 p-2 rounded">${esc
                     }
                 });
                 prevDirect = `A${sortedActions.length - 1}`;
-                prevPP = prevPP ? `A${sortedActions.length - 1}` : null;
             }
             md += `  ER["${erCodes.replace(/["']/g, '')}"]:::impact\n`;
             md += `  ${prevDirect} --> ER\n`;
-            if (prevPP) {
-                md += `  ${prevPP} --> ER\n`;
-            }
 
             const box = document.getElementById('graphBox');
             box.innerHTML = `<div class="inline-block text-left"><pre class="mermaid">${md}</pre></div>`;
@@ -1213,7 +1175,7 @@ ${o.desc ? `<p class="text-white text-sm mb-2 bg-slate-800/50 p-2 rounded">${esc
             md += `  classDef attack fill:#fee2e2,stroke:#ef4444,color:#7f1d1d;\n`;
             md += `  classDef pp fill:#e0f2fe,stroke:#0ea5e9,color:#0c4a6e;\n`;
             md += `  classDef bs fill:#f1f5f9,stroke:#64748b,color:#0f172a;\n`;
-            md += `  classDef vm fill:#e0f2fe,stroke:#0369a1,color:#0c4a6e;\n`;
+            md += `  classDef vm fill:#93C5F5,stroke:#0369a1,color:#0f172a;\n`;
             md += `  classDef impact fill:#fef3c7,stroke:#f59e0b,color:#92400e;\n`;
 
             const ssNode = `SS_${s.id}`;
@@ -1746,45 +1708,26 @@ ${matrixRes}
         function addBL() { const r = document.getElementById('blC').value.trim() || document.getElementById('blR').value; if (!r) return alert('Référentiel requis'); D.baseline.push({ id: gid(), ref: r, status: document.getElementById('blS').value, gap: document.getElementById('blG').value });['blC', 'blG'].forEach(x => document.getElementById(x).value = ''); document.getElementById('blR').value = ''; save(); render(); }
         function delBL(id) { if (confirm('Supprimer ce référentiel ?')) { D.baseline = D.baseline.filter(x => x.id !== id); save(); render(); } }
 
-        function addRS() { const objs = [...document.querySelectorAll('.rsO:checked')].map(c => c.value); if (!objs.length) return alert('Sélectionnez des objectifs'); D.rs.push({ id: gid(), type: document.getElementById('rsT').value, objs, mot: document.getElementById('rsM').value, res: document.getElementById('rsR').value, retained: false }); document.querySelectorAll('.rsO').forEach(c => c.checked = false); save(); render(); }
+        function saveRS() {
+            const objs = [...document.querySelectorAll('.eObj:checked')].map(c => c.value);
+            if (!objs.length) return alert('Sélectionnez au moins un objectif visé');
+            const type = document.getElementById('eType').value;
+            const mot = document.getElementById('eMot').value;
+            const res = document.getElementById('eRes').value;
+            if (editI) {
+                const item = D.rs.find(x => x.id === editI);
+                item.type = type; item.objs = objs; item.mot = mot; item.res = res;
+            } else {
+                D.rs.push({ id: gid(), type, objs, mot, res, retained: false });
+            }
+        }
         function delRS(id) { D.rs = D.rs.filter(x => x.id !== id); save(); render(); }
 
         function addPP() { const n = sanitizeStr(document.getElementById('ppN').value.trim(), 200); if (!n) return alert('Nom requis'); if (hasInjection(n)) return alert('Caractères non autorisés'); D.pp.push({ id: gid(), name: n, cat: document.getElementById('ppC').value, d: sanitizeNum(document.getElementById('ppD').value), p: sanitizeNum(document.getElementById('ppP').value), m: sanitizeNum(document.getElementById('ppM').value), c: sanitizeNum(document.getElementById('ppCf').value) }); document.getElementById('ppN').value = ''; save(); render(); }
         function delPP(id) { D.pp = D.pp.filter(x => x.id !== id); save(); render(); }
 
-        function addSS() {
-            const srIds = [...document.querySelectorAll('.ssRS:checked')].map(c => +c.value);
-            const ppIds = [...document.querySelectorAll('.ssPP:checked')].map(c => +c.value);
-            const erIds = [...document.querySelectorAll('.ssER:checked')].map(c => +c.value);
-            const desc = document.getElementById('ssD').value.trim();
-            if (!srIds.length) return alert('Sélectionnez au moins un couple SR/OV');
-            if (!erIds.length) return alert('Sélectionnez au moins un ER');
-            if (!desc) return alert('La description du scénario stratégique est obligatoire');
-            D.ss.push({ id: gid(), srIds, ppIds, erIds, g: String(calcSSGravity(erIds)), desc });
-            document.querySelectorAll('.ssRS,.ssPP,.ssER').forEach(c => c.checked = false);
-            document.getElementById('ssD').value = ''; save(); render();
-        }
         function delSS(id) { D.ss = D.ss.filter(x => x.id !== id); save(); render(); }
 
-        function addOS() {
-            const ss = document.getElementById('osS').value;
-            if (!ss) return alert('SS requis');
-            const desc = sanitizeStr(document.getElementById('osD').value, 1000);
-            const ppBox = document.getElementById('osPPBox');
-            let ppIds = [];
-            if (ppBox && !ppBox.classList.contains('hidden')) {
-                const direct = ppBox.querySelector('.osPPDirect')?.checked;
-                ppIds = [...ppBox.querySelectorAll('.osPP:checked')].map(c => +c.value);
-                if (direct) ppIds.unshift('direct');
-                else if (ppIds.length === 0) ppIds.unshift('direct');
-            } else {
-                ppIds = ['direct'];
-            }
-            D.os.push({ id: gid(), ss: +ss, v: document.getElementById('osV').value, desc: desc, ppIds: ppIds, actions: [] });
-            document.getElementById('osD').value = '';
-            if(document.getElementById('osWarning')) document.getElementById('osWarning').classList.add('hidden');
-            save(); render();
-        }
         function delOS(id) { D.os = D.os.filter(x => x.id !== id); save(); render(); }
         function updateActionBS(osId, ai, val) { const o = D.os.find(x => x.id === osId); if (o && o.actions[ai]) o.actions[ai].bs = val; save(); }
 
@@ -1811,10 +1754,21 @@ ${matrixRes}
             document.getElementById('editModal').classList.add('active');
         }
 
-        function editRS(id) {
-            editT = 'rs'; editI = id; const item = D.rs.find(x => x.id === id); const allSources = [...BDC.sources, ...D.customSources];
-            document.getElementById('editTitle').textContent = 'Modifier Source de Risque';
-            document.getElementById('editBody').innerHTML = `<div class="space-y-3"><div><label class="text-slate-400 text-xs">Source</label><select id="eType" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white mt-1">${allSources.map(s => `<option ${s === item.type ? 'selected' : ''}>${s}</option>`).join('')}</select></div><div><label class="text-slate-400 text-xs">Motivation</label><select id="eMot" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white mt-1">${BDC.motivation.map(m => `<option value="${m.v}" ${m.v == item.mot ? 'selected' : ''}>${m.v} - ${m.n}</option>`).join('')}</select></div><div><label class="text-slate-400 text-xs">Ressources</label><select id="eRes" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white mt-1">${BDC.ressources.map(r => `<option value="${r.v}" ${r.v == item.res ? 'selected' : ''}>${r.v} - ${r.n}</option>`).join('')}</select></div></div>`;
+        function openRSModal(id) {
+            editT = 'rs';
+            const isNew = !id;
+            editI = isNew ? null : id;
+            const allSources = [...BDC.sources, ...D.customSources];
+            const allObjectifs = [...BDC.objectifs, ...D.objectifsVises];
+            const item = isNew ? { type: allSources[0] || '', objs: [], mot: '3', res: '2', retained: false } : D.rs.find(x => x.id === id);
+            const currentObjs = item.objs || [];
+            document.getElementById('editTitle').textContent = isNew ? 'Créer Couple SR/OV' : 'Modifier Couple SR/OV';
+            document.getElementById('editBody').innerHTML = `<div class="space-y-3">
+<div><label class="text-slate-400 text-xs">Source</label><select id="eType" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white mt-1">${allSources.map(s => `<option ${s === item.type ? 'selected' : ''}>${s}</option>`).join('')}</select></div>
+<div><label class="text-slate-400 text-xs">Objectifs Visés (multi)</label><div class="bg-slate-900 border border-slate-600 rounded-lg p-2 mt-1 max-h-32 overflow-y-auto">${allObjectifs.map((o, i) => { const checked = currentObjs.includes(o) ? 'checked' : ''; return `<label class="flex items-center gap-1 text-white text-xs py-0.5 cursor-pointer hover:bg-slate-800 px-1 rounded"><input type="checkbox" class="eObj" value="${o.replace(/["']/g, '')}" ${checked}><span class="text-purple-400 font-mono mr-1">OV${i + 1}</span>${esc(o)}</label>`; }).join('')}</div></div>
+<div><label class="text-slate-400 text-xs">Motivation</label><select id="eMot" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white mt-1">${BDC.motivation.map(m => `<option value="${m.v}" ${m.v == item.mot ? 'selected' : ''}>${m.v} - ${m.n}</option>`).join('')}</select></div>
+<div><label class="text-slate-400 text-xs">Ressources</label><select id="eRes" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white mt-1">${BDC.ressources.map(r => `<option value="${r.v}" ${r.v == item.res ? 'selected' : ''}>${r.v} - ${r.n}</option>`).join('')}</select></div>
+</div>`;
             document.getElementById('editModal').classList.add('active');
         }
 
@@ -1857,10 +1811,14 @@ ${matrixRes}
                 else { const g = calcSSGravity(erIds); gEl.textContent = 'G' + g + ' — ' + (BDC.gravites[g - 1]?.n || ''); gEl.style.color = getLvlColor(g); }
             }
         }
-        function editSS(id) {
-            editT = 'ss'; editI = id; const item = D.ss.find(x => x.id === id); const retSR = D.rs.filter(r => r.retained);
+        function openSSModal(id) {
+            editT = 'ss';
+            const isNew = !id;
+            editI = isNew ? null : id;
+            const item = isNew ? { srIds: [], ppIds: [], erIds: [], desc: '' } : D.ss.find(x => x.id === id);
+            const retSR = D.rs.filter(r => r.retained);
             const srIds = item.srIds || []; const ppIds = item.ppIds || []; const erIds = item.erIds || [];
-            document.getElementById('editTitle').textContent = 'Modifier Scénario Stratégique';
+            document.getElementById('editTitle').textContent = isNew ? 'Créer Scénario Stratégique' : 'Modifier Scénario Stratégique';
             document.getElementById('editBody').innerHTML = `<div class="space-y-3">
 <div><label class="text-slate-400 text-xs">Couples SR/OV retenus</label><div class="bg-slate-900 border border-slate-600 rounded-lg p-2 mt-1 max-h-24 overflow-y-auto">${retSR.map(r => { const ri = D.rs.indexOf(r); const checked = srIds.includes(r.id); return `<label class="flex items-center gap-1 text-white text-xs py-0.5"><input type="checkbox" class="eSR" value="${r.id}" ${checked ? 'checked' : ''} onchange="refreshSSGrav('eSR','eER','eGDisp')">C${ri + 1}: ${r.type}${r.objs && r.objs.length ? ' → ' + [...new Set(r.objs)].join(', ') : ''}</label>`; }).join('') || '<span class="text-slate-500 text-xs">Aucun couple SR/OV retenu</span>'}</div></div>
 <div><label class="text-slate-400 text-xs">PP</label><div class="bg-slate-900 border border-slate-600 rounded-lg p-2 mt-1 max-h-24 overflow-y-auto">${D.pp.map((p, i) => { const checked = ppIds.includes(p.id); return `<label class="flex items-center gap-1 text-white text-xs py-0.5"><input type="checkbox" class="ePP" value="${p.id}" ${checked ? 'checked' : ''}>PP${i + 1}: ${esc(p.name)}</label>`; }).join('')}</div></div>
@@ -1872,11 +1830,14 @@ ${matrixRes}
             document.getElementById('editModal').classList.add('active');
         }
 
-        function editOS(id) {
-            editT = 'os'; editI = id; const item = D.os.find(x => x.id === id);
-            document.getElementById('editTitle').textContent = 'Modifier Scénario Opérationnel';
+        function openOSModal(id) {
+            editT = 'os';
+            const isNew = !id;
+            editI = isNew ? null : id;
+            const item = isNew ? { ss: '', v: '1', desc: '', ppIds: ['direct'], actions: [] } : D.os.find(x => x.id === id);
+            document.getElementById('editTitle').textContent = isNew ? 'Créer Scénario Opérationnel' : 'Modifier Scénario Opérationnel';
             document.getElementById('editBody').innerHTML = `<div class="space-y-3">
-<div><label class="text-slate-400 text-xs">Scénario Stratégique</label><select id="eSS" onchange="renderOSPP('eSS','eOSPPBox')" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white mt-1">${D.ss.map((s, i) => `<option value="${s.id}" ${s.id === item.ss ? 'selected' : ''}>SS${i + 1} - ${s.desc}</option>`).join('')}</select></div>
+<div><label class="text-slate-400 text-xs">Scénario Stratégique</label><select id="eSS" onchange="renderOSPP('eSS','eOSPPBox')" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white mt-1"><option value="">-- Choisir --</option>${D.ss.map((s, i) => `<option value="${s.id}" ${s.id === item.ss ? 'selected' : ''}>SS${i + 1} - ${s.desc}</option>`).join('')}</select></div>
 <div><label class="text-slate-400 text-xs">Vraisemblance</label><select id="eV" onchange="checkPPThreat('eSS', 'eV', 'eOSWarning')" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white mt-1">${BDC.vrais.map(v => `<option value="${v.id.charAt(1)}" ${v.id.charAt(1) === item.v ? 'selected' : ''}>${v.id} - ${v.n}</option>`).join('')}</select></div>
 <div id="eOSWarning" class="text-orange-400 text-xs mt-1 hidden"></div>
 <div id="eOSPPBox" class="bg-slate-900 border border-slate-600 rounded-lg p-2 mt-1"></div>
@@ -1903,29 +1864,40 @@ ${matrixRes}
         function saveEdit() {
             if (editT === 'bv') { const item = D.bv.find(x => x.id === editI); const n = sanitizeStr(document.getElementById('eN').value, 200); if (!n || hasInjection(n)) return alert('Nom invalide'); item.name = n; item.type = document.getElementById('eT').value; item.mission = +document.getElementById('eMv').value || null; item.desc = sanitizeStr(document.getElementById('eD').value, 1000); item.support = sanitizeStr(document.getElementById('eS').value, 500); item.owner = sanitizeStr(document.getElementById('eO').value, 100); }
             else if (editT === 'fe') { const item = D.fe.find(x => x.id === editI); const d = sanitizeStr(document.getElementById('eD').value, 500); if (hasInjection(d)) return alert('Description invalide'); item.bv = +document.getElementById('eBV').value; item.desc = d; item.g = document.getElementById('eG').value; item.impact = document.getElementById('eI').value; recomputeSSGravity(item.id); }
-            else if (editT === 'rs') { const item = D.rs.find(x => x.id === editI); item.type = document.getElementById('eType').value; item.mot = document.getElementById('eMot').value; item.res = document.getElementById('eRes').value; }
+            else if (editT === 'rs') { saveRS(); }
             else if (editT === 'pp') { const item = D.pp.find(x => x.id === editI); const n = sanitizeStr(document.getElementById('eN').value, 200); if (!n || hasInjection(n)) return alert('Nom invalide'); item.name = n; item.cat = document.getElementById('eCat').value; item.d = sanitizeNum(document.getElementById('eD').value); item.p = sanitizeNum(document.getElementById('eP').value); item.m = sanitizeNum(document.getElementById('eM').value); item.c = sanitizeNum(document.getElementById('eC').value); }
             else if (editT === 'ss') {
-                const item = D.ss.find(x => x.id === editI);
                 const srIds = [...document.querySelectorAll('.eSR:checked')].map(c => +c.value);
                 const erIds = [...document.querySelectorAll('.eER:checked')].map(c => +c.value);
+                const ppIds = [...document.querySelectorAll('.ePP:checked')].map(c => +c.value);
                 const desc = sanitizeStr(document.getElementById('eDesc').value, 1000);
                 if (!srIds.length) return alert('Sélectionnez au moins un couple SR/OV');
                 if (!erIds.length) return alert('Sélectionnez au moins un ER');
                 if (!desc) return alert('La description du scénario stratégique est obligatoire');
-                item.srIds = srIds; item.ppIds = [...document.querySelectorAll('.ePP:checked')].map(c => +c.value); item.erIds = erIds; item.g = String(calcSSGravity(erIds)); item.desc = desc;
+                if (editI) {
+                    const item = D.ss.find(x => x.id === editI);
+                    item.srIds = srIds; item.ppIds = ppIds; item.erIds = erIds; item.g = String(calcSSGravity(erIds)); item.desc = desc;
+                } else {
+                    D.ss.push({ id: gid(), srIds, ppIds, erIds, g: String(calcSSGravity(erIds)), desc });
+                }
             }
             else if (editT === 'os') {
-                const item = D.os.find(x => x.id === editI);
-                item.ss = +document.getElementById('eSS').value;
-                item.v = document.getElementById('eV').value;
-                item.desc = sanitizeStr(document.getElementById('eDesc').value, 1000);
+                const ss = +document.getElementById('eSS').value;
+                if (!ss) return alert('Scénario stratégique requis');
                 const ppBox = document.getElementById('eOSPPBox');
                 const direct = ppBox?.querySelector('.osPPDirect')?.checked;
                 let ppIds = [...ppBox.querySelectorAll('.osPP:checked')].map(c => +c.value);
                 if (direct) ppIds.unshift('direct');
                 else if (ppIds.length === 0) ppIds.unshift('direct');
-                item.ppIds = ppIds;
+                if (editI) {
+                    const item = D.os.find(x => x.id === editI);
+                    item.ss = ss;
+                    item.v = document.getElementById('eV').value;
+                    item.desc = sanitizeStr(document.getElementById('eDesc').value, 1000);
+                    item.ppIds = ppIds;
+                } else {
+                    D.os.push({ id: gid(), ss: ss, v: document.getElementById('eV').value, desc: sanitizeStr(document.getElementById('eDesc').value, 1000), ppIds: ppIds, actions: [] });
+                }
             }
             else if (editT === 'measure') { const item = D.measures.find(x => x.id === editI); const m = sanitizeStr(document.getElementById('eMeasure').value, 500); if (hasInjection(m)) return alert('Mesure invalide'); item.riskIds = [...document.querySelectorAll('.eRisk:checked')].map(c => +c.value); item.cat = document.getElementById('eCat').value; item.measure = m; item.resp = sanitizeStr(document.getElementById('eResp').value, 100); item.jalon = sanitizeNum(document.getElementById('eJalon').value); }
             else if (editT === 'rr') { const item = D.risquesResiduels.find(x => x.id === editI); const j = sanitizeStr(document.getElementById('eRRJust').value, 500); if (hasInjection(j)) return alert('Justification invalide'); const dec = document.getElementById('eRRDec').value; if (!dec) return alert('Sélectionnez une décision de traitement'); const trans = sanitizeStr(document.getElementById('eRRTrans').value, 200); if (hasInjection(trans)) return alert('Caractères non autorisés'); if (dec === 'transféré' && !trans) return alert('Indiquez la cible du transfert'); if ((dec === 'éviter' || dec === 'réduit') && !D.measures.some(m => (m.riskIds || [m.risk].filter(Boolean)).includes(item.riskId))) { if (!confirm('Aucune mesure PACS liée à ce risque. Continuer ?')) return; } item.gRes = sanitizeNum(document.getElementById('eRRG').value); item.vRes = sanitizeNum(document.getElementById('eRRV').value); item.jalon = document.getElementById('eRRJ').value ? sanitizeNum(document.getElementById('eRRJ').value) : 0; item.justification = j; item.decision = dec; item.transferTarget = trans; }
@@ -2276,11 +2248,11 @@ ${matrixRes}
                             md += `  classDef attack fill:#fee2e2,stroke:#ef4444,color:#7f1d1d;\n`;
                             md += `  classDef pp fill:#e0f2fe,stroke:#0ea5e9,color:#0c4a6e;\n`;
                             md += `  classDef bs fill:#f1f5f9,stroke:#64748b,color:#0f172a;\n`;
-                            md += `  classDef vm fill:#e0f2fe,stroke:#0369a1,color:#0c4a6e;\n`;
+                            md += `  classDef vm fill:#93C5F5,stroke:#0369a1,color:#0f172a;\n`;
                             md += `  classDef impact fill:#fef3c7,stroke:#f59e0b,color:#92400e;\n`;
 
                             const ssNode = `SS_${s.id}`;
-                            md += `  ${ssNode}["SS: ${s.desc.replace(/["']/g, '')}"]:::ss\n`;
+                            md += `  ${ssNode}["SS: ${wrapLabel(s.desc, 55).replace(/["']/g, '')}"]:::ss\n`;
 
                             // Sources de risque
                             const srNodes = [];
@@ -2288,7 +2260,7 @@ ${matrixRes}
                                 const r = D.rs.find(x => x.id === sid);
                                 if (r) {
                                     const srNode = `SR_${s.id}_${idx}`;
-                                    const label = `SR: ${r.type}` + (r.objs && r.objs.length ? `\\nOV: ${r.objs.join(', ')}` : '');
+                                    const label = `SR: ${wrapLabel(r.type, 40)}` + (r.objs && r.objs.length ? `\\nOV: ${wrapLabel(r.objs.join(', '), 40)}` : '');
                                     md += `  ${srNode}["${label.replace(/["']/g, '')}"]:::attack\n`;
                                     srNodes.push(srNode);
                                 }
@@ -2296,7 +2268,7 @@ ${matrixRes}
 
                             // Parties prenantes (agrégées dans un seul nœud)
                             const ppIds = s.ppIds || [s.pp].filter(Boolean);
-                            const ppNames = ppIds.map(pid => { const p = D.pp.find(x => x.id === pid); return p ? p.name : null; }).filter(Boolean);
+                            const ppNames = ppIds.map(pid => { const p = D.pp.find(x => x.id === pid); return p ? wrapLabel(p.name, 40) : null; }).filter(Boolean);
                             const ppNode = ppNames.length ? `PP_${s.id}` : null;
                             if (ppNode) {
                                 const ppLabel = ('PP (optionnel)\\n\\n' + ppNames.join('\\n')).replace(/["']/g, '');
@@ -2310,7 +2282,7 @@ ${matrixRes}
                                 const f = D.fe.find(x => x.id === eid);
                                 if (!f) return;
                                 const erNode = `ER_${f.id}`;
-                                md += `  ${erNode}["ER: ${f.desc.replace(/["']/g, '')}"]:::impact\n`;
+                                md += `  ${erNode}["ER: ${wrapLabel(f.desc, 55).replace(/["']/g, '')}"]:::impact\n`;
 
                                 const b = D.bv.find(x => x.id === f.bv);
                                 if (!b) return;
@@ -2318,7 +2290,7 @@ ${matrixRes}
                                 const vmNode = `VM_${b.id}`;
                                 const bsList = (b.support || '').split(',').map(x => x.trim()).filter(Boolean);
                                 if (!vmBs[vmNode]) {
-                                    md += `  ${vmNode}["VM: ${b.name.replace(/["']/g, '')}"]:::vm\n`;
+                                    md += `  ${vmNode}["VM: ${wrapLabel(b.name, 55).replace(/["']/g, '')}"]:::vm\n`;
                                     vmBs[vmNode] = { bsList: [], erNodes: [] };
                                 }
                                 vmBs[vmNode].bsList = [...new Set([...vmBs[vmNode].bsList, ...bsList])];
@@ -2330,7 +2302,7 @@ ${matrixRes}
                                 data.vmNode = vmNode;
                                 if (data.bsList.length) {
                                     const bsNode = `BS_${vmNode}`;
-                                    const bsLabel = ('Biens Supports\\n\\n' + data.bsList.join('\\n')).replace(/["']/g, '');
+                                    const bsLabel = ('Biens Supports\\n\\n' + data.bsList.map(bs => wrapLabel(bs, 40)).join('\\n')).replace(/["']/g, '');
                                     md += `  ${bsNode}["${bsLabel}"]:::bs\n`;
                                     md += `  ${bsNode} --> ${vmNode}\n`;
                                     data.bsNode = bsNode;
@@ -2368,7 +2340,7 @@ ${matrixRes}
                             try {
                                 const id = 'merss_' + Date.now() + Math.floor(Math.random()*1000);
                                 const oldConfig = mermaid.mermaidAPI.getConfig();
-                                mermaid.initialize({ ...oldConfig, startOnLoad: false, theme: 'default', flowchart: { htmlLabels: false } });
+                                mermaid.initialize({ ...oldConfig, startOnLoad: false, theme: 'default', flowchart: { htmlLabels: false, padding: 20, nodeSpacing: 60, rankSpacing: 60, useMaxWidth: false } });
                                 const { svg } = await mermaid.render(id, md);
                                 mermaid.initialize(oldConfig);
                                 
@@ -2397,8 +2369,10 @@ ${matrixRes}
                                 });
                                 
                                 if (pngData) {
-                                    let fw = pngData.w; let fh = pngData.h;
-                                    if (fw > 600) { fh = Math.round(fh * (600 / fw)); fw = 600; }
+                                    const MAX_W = 680, MAX_H = 400;
+                                    let fw = pngData.w, fh = pngData.h;
+                                    const scale = Math.min(MAX_W / fw, MAX_H / fh, 1);
+                                    if (scale < 1) { fw = Math.round(fw * scale); fh = Math.round(fh * scale); }
                                     children.push(new Paragraph({
                                         alignment: AlignmentType.CENTER, spacing: { before: 100, after: 200 },
                                         children: [ new docx.ImageRun({ data: Uint8Array.from(atob(pngData.data), c => c.charCodeAt(0)), transformation: { width: fw, height: fh } }) ]
@@ -2450,13 +2424,13 @@ ${matrixRes}
 
                         // === Génération Graphique Mermaid PNG ===
                         if (window.mermaid) {
-                            const msr = ss ? (ss.srIds || []).map(sid => { const r = D.rs.find(x => x.id === sid); return r ? r.type + (r.objs && r.objs.length ? ` (OV: ${r.objs.join(', ')})` : '') : ''; }).filter(Boolean).join('\\n') : 'Source Inconnue';
-                            const mer = ss ? (ss.erIds || ss.fe || []).map(eid => D.fe.find(x => x.id === eid)?.desc || '').filter(Boolean).join('\\n') : 'Événement Redouté';
+                            const msr = ss ? (ss.srIds || []).map(sid => { const r = D.rs.find(x => x.id === sid); return r ? wrapLabel(r.type, 40) + (r.objs && r.objs.length ? `\\n(OV: ${wrapLabel(r.objs.join(', '), 40)})` : '') : ''; }).filter(Boolean).join('\\n') : 'Source Inconnue';
+                            const mer = ss ? (ss.erIds || ss.fe || []).map(eid => wrapLabel(D.fe.find(x => x.id === eid)?.desc || '', 55)).filter(Boolean).join('\\n') : 'Événement Redouté';
 
                             // PP choisies pour ce SO
                             const osPP = (o.ppIds || []).filter(pid => pid !== 'direct');
                             const directEnabled = (o.ppIds || []).includes('direct');
-                            const mpp = osPP.map(pid => D.pp.find(x => x.id === pid)?.name || '').filter(Boolean).join('\\n');
+                            const mpp = osPP.map(pid => wrapLabel(D.pp.find(x => x.id === pid)?.name || '', 40)).filter(Boolean).join('\\n');
 
                             let md = "flowchart TD\n";
                             md += `  classDef attack fill:#fee2e2,stroke:#ef4444,color:#7f1d1d;\n`;
@@ -2484,7 +2458,7 @@ ${matrixRes}
                                 if (prevPP) md += `  ${prevPP} --> A0\n`;
 
                                 sortedActions.forEach((a, k) => {
-                                    const label = `${a.technique}${a.bs ? `\\n[ ${a.bs} ]` : ''}`;
+                                    const label = `${wrapLabel(a.technique, 40)}${a.bs ? `\\n[ ${wrapLabel(a.bs, 35)} ]` : ''}`;
                                     md += `  A${k}["${label.replace(/["']/g, '')}"]\n`;
                                     md += `  style A${k} fill:#f8fafc,stroke:${a.color || '#64748b'},stroke-width:3px,color:#0f172a\n`;
                                     if (k > 0) {
@@ -2492,16 +2466,14 @@ ${matrixRes}
                                     }
                                 });
                                 prevDirect = `A${sortedActions.length - 1}`;
-                                prevPP = prevPP ? `A${sortedActions.length - 1}` : null;
                             }
                             md += `  ER["${mer.replace(/["']/g, '')}"]:::impact\n`;
                             md += `  ${prevDirect} --> ER\n`;
-                            if (prevPP) md += `  ${prevPP} --> ER\n`;
                             
                             try {
                                 const id = 'mer_' + Date.now() + Math.floor(Math.random()*1000);
                                 const oldConfig = mermaid.mermaidAPI.getConfig();
-                                mermaid.initialize({ ...oldConfig, startOnLoad: false, theme: 'default', flowchart: { htmlLabels: false } });
+                                mermaid.initialize({ ...oldConfig, startOnLoad: false, theme: 'default', flowchart: { htmlLabels: false, padding: 20, nodeSpacing: 60, rankSpacing: 60, useMaxWidth: false } });
                                 const { svg } = await mermaid.render(id, md);
                                 mermaid.initialize(oldConfig);
                                 
@@ -2530,8 +2502,10 @@ ${matrixRes}
                                 });
                                 
                                 if (pngData) {
-                                    let fw = pngData.w; let fh = pngData.h;
-                                    if (fw > 600) { fh = Math.round(fh * (600 / fw)); fw = 600; }
+                                    const MAX_W = 680, MAX_H = 400;
+                                    let fw = pngData.w, fh = pngData.h;
+                                    const scale = Math.min(MAX_W / fw, MAX_H / fh, 1);
+                                    if (scale < 1) { fw = Math.round(fw * scale); fh = Math.round(fh * scale); }
                                     children.push(new Paragraph({
                                         alignment: AlignmentType.CENTER, spacing: { before: 100, after: 200 },
                                         children: [ new docx.ImageRun({ data: Uint8Array.from(atob(pngData.data), c => c.charCodeAt(0)), transformation: { width: fw, height: fh } }) ]
