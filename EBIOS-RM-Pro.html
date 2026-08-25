@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy"
         content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; img-src 'self' data: blob:; font-src 'self' https://fonts.gstatic.com; connect-src 'self';">
-    <title>EBIOS RM Pro v6.0</title>
+    <title>EBIOS RM Pro v6.5</title>
     <script src="libs/tailwindcss.js"></script>
     <script>window.tailwind || document.write('<script src="https://cdn.tailwindcss.com"><\/script>')</script>
     <script src="libs/docx.umd.min.js"></script>
@@ -296,7 +296,7 @@
                 🛡️</div>
             <div class="stxt">
                 <h1 class="text-sm font-bold text-white">EBIOS RM Pro</h1>
-                <p class="text-slate-500 text-xs">v6.0 • ANSSI</p>
+                <p class="text-slate-500 text-xs">v6.5 • ANSSI</p>
             </div>
         </div>
         <nav class="flex-1 p-2 overflow-y-auto">
@@ -380,7 +380,7 @@
                 <div
                     class="w-20 h-20 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-2xl flex items-center justify-center text-4xl mx-auto mb-3">
                     🛡️</div>
-                <h2 class="text-xl font-bold text-white">EBIOS RM Pro v6.0</h2>
+                <h2 class="text-xl font-bold text-white">EBIOS RM Pro v6.5</h2>
                 <p class="text-slate-400 text-sm mt-1">Analyse de Risques • ANSSI • MITRE ATT&CK</p>
             </div>
             <div id="savedBox" class="hidden mb-4 p-3 bg-blue-500/20 border border-blue-500/50 rounded-lg">
@@ -629,7 +629,7 @@
         }
 
         let D = {
-            meta: { studyName: '', organization: '', scope: '', date: new Date().toISOString().split('T')[0], version: '1.0' },
+            meta: { studyName: '', organization: '', scope: '', version: '1.0' },
             missions: [], bv: [], fe: [], baseline: [], rs: [], pp: [], ss: [], os: [], measures: [], erToSr: [], customSources: [], objectifsVises: [], risquesResiduels: []
         };
         let ID = 1, W = 1, editT = null, editI = null, mitreTargetOS = null; let charts = [], chartTimer = null;
@@ -669,7 +669,7 @@
             }
         }
 
-        function startNew() { if (localStorage.getItem('ebios5') && !confirm('Effacer l\'analyse?')) return; localStorage.clear(); D = { meta: { studyName: '', organization: '', scope: '', date: new Date().toISOString().split('T')[0], version: '1.0' }, missions: [], bv: [], fe: [], baseline: [], rs: [], pp: [], ss: [], os: [], measures: [], erToSr: [], customSources: [], objectifsVises: [], risquesResiduels: [] }; ID = 1; closeStart(); render(); }
+        function startNew() { if (localStorage.getItem('ebios5') && !confirm('Effacer l\'analyse?')) return; localStorage.clear(); D = { meta: { studyName: '', organization: '', scope: '', version: '1.0' }, missions: [], bv: [], fe: [], baseline: [], rs: [], pp: [], ss: [], os: [], measures: [], erToSr: [], customSources: [], objectifsVises: [], risquesResiduels: [] }; ID = 1; closeStart(); render(); }
 
         function impJSON(e) {
             const f = e.target.files[0];
@@ -706,7 +706,7 @@
             const url = URL.createObjectURL(b);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `EBIOS_${safe}_${D.meta.date || ''}.json`;
+            a.download = `EBIOS_${safe}_${new Date().toISOString().split('T')[0]}.json`;
             a.click();
             URL.revokeObjectURL(url);
         }
@@ -784,10 +784,9 @@
             return `
 <section class="card mb-4">
 <h3 class="text-white font-bold mb-3">🏢 Cadrage</h3>
-<div class="grid md:grid-cols-4 gap-3">
+<div class="grid md:grid-cols-3 gap-3">
 <div><label class="text-slate-400 text-xs">Nom *</label><input type="text" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm mt-1" value="${D.meta.studyName}" onchange="D.meta.studyName=this.value;updUI();save()"></div>
 <div><label class="text-slate-400 text-xs">Organisation</label><input type="text" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm mt-1" value="${D.meta.organization}" onchange="D.meta.organization=this.value;save()"></div>
-<div><label class="text-slate-400 text-xs">Date</label><input type="date" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm mt-1" value="${D.meta.date}" onchange="D.meta.date=this.value;save()"></div>
 <div><label class="text-slate-400 text-xs">Version</label><input type="text" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm mt-1" value="${D.meta.version}" onchange="D.meta.version=this.value;save()"></div>
 </div>
 <div class="mt-3"><label class="text-slate-400 text-xs">Périmètre de l'étude</label><textarea rows="2" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm mt-1" onchange="D.meta.scope=this.value;save()" placeholder="Périmètre organisationnel et technique couvert par l'analyse...">${esc(D.meta.scope || '')}</textarea></div>
@@ -1593,7 +1592,7 @@ ${(() => {
 <div class="grid md:grid-cols-4 gap-4 text-center">
 <div><span class="text-slate-400 text-xs block">Projet</span><span class="text-white font-medium">${D.meta.studyName || '-'}</span></div>
 <div><span class="text-slate-400 text-xs block">Organisation</span><span class="text-white font-medium">${D.meta.organization || '-'}</span></div>
-<div><span class="text-slate-400 text-xs block">Dernière modif.</span><span class="text-white font-medium">${D.meta.lastSaved ? new Date(D.meta.lastSaved).toLocaleDateString('fr-FR') : (D.meta.date || '-')}</span></div>
+<div><span class="text-slate-400 text-xs block">Dernière modif.</span><span class="text-white font-medium">${D.meta.lastSaved ? new Date(D.meta.lastSaved).toLocaleDateString('fr-FR') : '-'}</span></div>
 <div><span class="text-slate-400 text-xs block">Version</span><span class="text-white font-medium">v${D.meta.version}</span></div>
 </div>
 </div>
@@ -1950,7 +1949,7 @@ ${matrixRes}
                 // ==================== PAGE 1: TITRE + DASHBOARD ====================
                 children.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 100 }, children: [new TextRun({ text: 'EBIOS RM - Analyse des Risques', bold: true, size: 52, color: '1E40AF' })] }));
                 children.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 100 }, children: [new TextRun({ text: D.meta.studyName || 'Analyse', bold: true, size: 40, color: '7C3AED' })] }));
-                children.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 400 }, children: [new TextRun({ text: `${D.meta.organization || '-'} | Modif. ${D.meta.lastSaved ? new Date(D.meta.lastSaved).toLocaleDateString('fr-FR') : D.meta.date} | v${D.meta.version}`, size: 24, color: '64748B' })] }));
+                children.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 400 }, children: [new TextRun({ text: `${D.meta.organization || '-'} | Modif. ${D.meta.lastSaved ? new Date(D.meta.lastSaved).toLocaleDateString('fr-FR') : '-'} | v${D.meta.version}`, size: 24, color: '64748B' })] }));
 
                 // Dashboard - Indicateurs clés
                 children.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 100 }, children: [new TextRun({ text: 'Rapport généré le ' + new Date().toLocaleDateString('fr-FR') + ' à ' + new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }), size: 18, color: '94A3B8', italics: true })] }));
@@ -2684,7 +2683,7 @@ ${matrixRes}
                     sections: [{ properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 720, right: 720, bottom: 720, left: 720 } } }, children }]
                 });
 
-                Packer.toBlob(doc).then(blob => { saveAs(blob, 'EBIOS_RM_' + (D.meta.studyName || 'Rapport').replace(/[^a-zA-Z0-9]/g, '_') + '_' + D.meta.date + '.docx'); });
+                Packer.toBlob(doc).then(blob => { saveAs(blob, 'EBIOS_RM_' + (D.meta.studyName || 'Rapport').replace(/[^a-zA-Z0-9]/g, '_') + '_v' + (D.meta.version || '1.0').replace(/[^a-zA-Z0-9._]/g, '_') + '_' + new Date().toISOString().split('T')[0] + '.docx'); });
             } catch (e) { alert('Erreur export Word: ' + e.message); console.error(e); }
         }
 

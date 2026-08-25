@@ -1,8 +1,8 @@
-# 🛡️ EBIOS RM Pro v6.0
+# 🛡️ EBIOS RM Pro v6.5
 
 **Application web d'analyse de risques selon la méthodologie EBIOS Risk Manager de l'ANSSI**
 
-![Version](https://img.shields.io/badge/version-6.0-blue)
+![Version](https://img.shields.io/badge/version-6.5-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Client-side](https://img.shields.io/badge/100%25%20client--side-brightgreen)
 ![Offline](https://img.shields.io/badge/offline--ready-orange)
@@ -11,7 +11,7 @@
 
 EBIOS RM Pro est un outil **100 % client-side** (aucun serveur requis, aucune donnée transmise) permettant de réaliser des analyses de risques complètes selon la méthodologie **EBIOS Risk Manager de l'ANSSI**, enrichie d'une intégration du référentiel **MITRE ATT&CK**.
 
-Cette version **v6.0** est une évolution majeure d'un fork de la version v5 : refonte méthodologique (gravité des scénarios stratégiques auto-calculée, décision de traitement explicite, vérification de cohérence de l'analyse, graphes d'attaque Mermaid) et autonomie complète hors-ligne. Voir ci-dessous la section « Évolutions par rapport à la version d'origine » pour le détail des écarts.
+Cette version **v6.5** est une évolution majeure d'un fork de la version v5 : refonte méthodologique (gravité des scénarios stratégiques auto-calculée, décision de traitement explicite, vérification de cohérence de l'analyse, graphes d'attaque Mermaid) et autonomie complète hors-ligne. Voir ci-dessous la section « Évolutions par rapport à la version d'origine » pour le détail des écarts.
 
 ### Fonctionnalités principales
 
