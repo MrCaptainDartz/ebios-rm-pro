@@ -556,6 +556,155 @@
             return lines.join('\\n');
         }
 
+        // === Export Word : rendu Mermaid -> PNG avec marges garanties ===
+        // Sous Windows, la police Mermaid (Trebuchet MS, hintée) est rastérisée par
+        // le pipeline SVG -> Image -> canvas avec des avances de glyphes arrondies :
+        // le texte du PNG est plus large que le texte mesuré (getBBox) au layout,
+        // et finit collé aux bords des cases (invisible sous Linux, métriques
+        // cohérentes). Comme l'écart dépend de la machine, on mesure la vraie
+        // marge dans le PNG et on régénère avec plus de padding si nécessaire.
+        function __hex2rgb(h) {
+            h = String(h).replace('#', '');
+            return [parseInt(h.substr(0, 2), 16), parseInt(h.substr(2, 2), 16), parseInt(h.substr(4, 2), 16)];
+        }
+        // Couleurs de fond et de texte des cases des graphes exportés (classDef/style)
+        const MERMAID_GAP_FILLS = ['#ede9fe', '#fee2e2', '#e0f2fe', '#f1f5f9', '#93c5f5', '#fef3c7', '#f8fafc'].map(__hex2rgb);
+        const MERMAID_GAP_TEXTS = ['#4c1d95', '#7f1d1d', '#0c4a6e', '#0f172a', '#92400e'].map(__hex2rgb);
+
+        function __paletteDist(palette, r, g, b) {
+            let m = Infinity;
+            for (let i = 0; i < palette.length; i++) {
+                const c = palette[i];
+                const d = (c[0] - r) * (c[0] - r) + (c[1] - g) * (c[1] - g) + (c[2] - b) * (c[2] - b);
+                if (d < m) m = d;
+            }
+            return Math.sqrt(m);
+        }
+
+        // Plus petite marge horizontale (px, à l'échelle du canvas 2x) entre le bord
+        // intérieur d'une case et son texte, mesurée dans le PNG rastérisé.
+        function mermaidMinTextGap(canvas) {
+            const w = canvas.width, h = canvas.height, n = w * h;
+            if (!w || !h) return Infinity;
+            const px = canvas.getContext('2d').getImageData(0, 0, w, h).data;
+            const kind = new Uint8Array(n); // 1 = fond de case, 2 = texte
+            for (let i = 0; i < n; i++) {
+                const r = px[i * 4], g = px[i * 4 + 1], b = px[i * 4 + 2];
+                if (__paletteDist(MERMAID_GAP_FILLS, r, g, b) <= 20) kind[i] = 1;
+                else if (__paletteDist(MERMAID_GAP_TEXTS, r, g, b) <= 40) kind[i] = 2;
+            }
+            // Composantes connexes de fond de case ; on ignore celles qui touchent
+            // le bord du canvas (fond blanc de la page, proche des fonds clairs).
+            const comp = new Int32Array(n).fill(-1);
+            const comps = [];
+            const stack = [];
+            for (let i = 0; i < n; i++) {
+                if (kind[i] !== 1 || comp[i] !== -1) continue;
+                const id = comps.length;
+                comps.push({ id: id, x0: w, x1: -1, y0: h, y1: -1, border: false, size: 0 });
+                stack.length = 0; stack.push(i); comp[i] = id;
+                while (stack.length) {
+                    const p = stack.pop(), x = p % w, y = (p / w) | 0, c = comps[id];
+                    c.size++;
+                    if (x < c.x0) c.x0 = x; if (x > c.x1) c.x1 = x;
+                    if (y < c.y0) c.y0 = y; if (y > c.y1) c.y1 = y;
+                    if (x === 0 || y === 0 || x === w - 1 || y === h - 1) c.border = true;
+                    if (x > 0 && kind[p - 1] === 1 && comp[p - 1] === -1) { comp[p - 1] = id; stack.push(p - 1); }
+                    if (x < w - 1 && kind[p + 1] === 1 && comp[p + 1] === -1) { comp[p + 1] = id; stack.push(p + 1); }
+                    if (y > 0 && kind[p - w] === 1 && comp[p - w] === -1) { comp[p - w] = id; stack.push(p - w); }
+                    if (y < h - 1 && kind[p + w] === 1 && comp[p + w] === -1) { comp[p + w] = id; stack.push(p + w); }
+                }
+            }
+            let minGap = Infinity;
+            for (const c of comps) {
+                if (c.border || c.size < 2000) continue;
+                const band = Math.min(120, ((c.x1 - c.x0) / 2) | 0);
+                if (band < 8) continue;
+                for (let y = c.y0 + 4; y <= c.y1 - 4; y++) {
+                    const row = y * w;
+                    // Bord gauche : on part du premier pixel de CETTE composante sur
+                    // la ligne (pas de la bbox, sinon les poches de fond enfermées
+                    // entre les flèches traverseraient les cases voisines). On
+                    // traverse uniquement le fond de la case (franges d'anti-
+                    // aliasing tolérées), puis on mesure la distance au texte.
+                    let xL = -1;
+                    for (let x = c.x0; x <= c.x1; x++) { if (comp[row + x] === c.id) { xL = x; break; } }
+                    if (xL >= 0) {
+                        let skip = 0;
+                        for (let x = xL + 1; x <= c.x1 && x - xL <= band; x++) {
+                            const i = row + x;
+                            if (kind[i] === 2) { const g = x - xL; if (g < minGap) minGap = g; break; }
+                            if (kind[i] === 1 && comp[i] !== c.id) break;
+                            if (kind[i] === 0) { if (++skip > 8) break; } else skip = 0;
+                        }
+                    }
+                    let xR = -1;
+                    for (let x = c.x1; x >= c.x0; x--) { if (comp[row + x] === c.id) { xR = x; break; } }
+                    if (xR >= 0) {
+                        let skip = 0;
+                        for (let x = xR - 1; x >= c.x0 && xR - x <= band; x--) {
+                            const i = row + x;
+                            if (kind[i] === 2) { const g = xR - x; if (g < minGap) minGap = g; break; }
+                            if (kind[i] === 1 && comp[i] !== c.id) break;
+                            if (kind[i] === 0) { if (++skip > 8) break; } else skip = 0;
+                        }
+                    }
+                }
+            }
+            return minGap;
+        }
+
+        // Rend un graphe Mermaid en PNG ({data: base64, w, h}) avec marge de texte
+        // garantie : ré-essaie avec un padding plus grand si le rendu colle au bord.
+        async function mermaidToPngSafe(mdText) {
+            const PADDINGS = [24, 40, 64, 110]; // padding Mermaid = 2x la marge ajoutée par côté
+            // (palier 40 : sous Windows, mesuré ~18px d'écart de métrique police,
+            // donne une marge finale ~11px/côté, calée sur le rendu Linux)
+            const MIN_GAP = 16;             // px à l'échelle 2x du canvas (≈ 8px/côté en taille réelle)
+            for (let k = 0; k < PADDINGS.length; k++) {
+                let svg;
+                const oldConfig = mermaid.mermaidAPI.getConfig();
+                mermaid.initialize({ ...oldConfig, startOnLoad: false, theme: 'default', flowchart: { htmlLabels: false, padding: PADDINGS[k], nodeSpacing: 60, rankSpacing: 60, useMaxWidth: false } });
+                try {
+                    svg = (await mermaid.render('merexport_' + Date.now() + '_' + Math.floor(Math.random() * 1000), mdText)).svg;
+                } finally {
+                    mermaid.initialize(oldConfig);
+                }
+                const canvas = await new Promise((resolve) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const c = document.createElement('canvas');
+                        c.width = img.width * 2; c.height = img.height * 2;
+                        const ctx = c.getContext('2d');
+                        ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, c.width, c.height);
+                        ctx.scale(2, 2); ctx.drawImage(img, 0, 0);
+                        URL.revokeObjectURL(img.src);
+                        resolve(c);
+                    };
+                    img.onerror = () => resolve(null);
+                    let safeSvg = svg;
+                    safeSvg = safeSvg.replace(/<svg([^>]+)width="[^"]+"([^>]*)>/i, '<svg$1$2>');
+                    safeSvg = safeSvg.replace(/<svg([^>]+)height="[^"]+"([^>]*)>/i, '<svg$1$2>');
+                    if (!safeSvg.includes('xmlns=')) safeSvg = safeSvg.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ');
+                    const vb = safeSvg.match(/viewBox="([^"]+)"/i);
+                    if (vb) {
+                        const p = vb[1].split(/[ ,]+/);
+                        if (p.length >= 4) safeSvg = safeSvg.replace('<svg ', `<svg width="${p[2]}" height="${p[3]}" `);
+                    }
+                    img.src = URL.createObjectURL(new Blob([safeSvg], { type: 'image/svg+xml;charset=utf-8' }));
+                });
+                if (!canvas) return null;
+                let data;
+                try { data = canvas.toDataURL('image/png').split(',')[1]; } catch (e) { return null; }
+                const gap = mermaidMinTextGap(canvas);
+                if (gap >= MIN_GAP || k === PADDINGS.length - 1) {
+                    if (k > 0) console.info(`Export Word : graphe régénéré avec padding ${PADDINGS[k]} (marge texte mesurée ${Math.round(gap / 2)}px) pour compenser les métriques de police.`);
+                    return { data: data, w: canvas.width / 2, h: canvas.height / 2 };
+                }
+            }
+            return null;
+        }
+
         // Validation de chaîne (longueur max, caractères autorisés)
         function sanitizeStr(str, maxLen = 500) {
             if (typeof str !== 'string') return '';
@@ -2337,36 +2486,7 @@ ${matrixRes}
                             }
 
                             try {
-                                const id = 'merss_' + Date.now() + Math.floor(Math.random()*1000);
-                                const oldConfig = mermaid.mermaidAPI.getConfig();
-                                mermaid.initialize({ ...oldConfig, startOnLoad: false, theme: 'default', flowchart: { htmlLabels: false, padding: 20, nodeSpacing: 60, rankSpacing: 60, useMaxWidth: false } });
-                                const { svg } = await mermaid.render(id, md);
-                                mermaid.initialize(oldConfig);
-                                
-                                const pngData = await new Promise((resolve) => {
-                                    const img = new Image();
-                                    img.onload = () => {
-                                        const canvas = document.createElement('canvas');
-                                        canvas.width = img.width * 2; canvas.height = img.height * 2;
-                                        const ctx = canvas.getContext('2d');
-                                        ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-                                        ctx.scale(2, 2); ctx.drawImage(img, 0, 0);
-                                        try { resolve({ data: canvas.toDataURL('image/png').split(',')[1], w: img.width, h: img.height }); } catch(e) { resolve(null); }
-                                    };
-                                    img.onerror = () => resolve(null);
-                                    let safeSvg = svg;
-                                    safeSvg = safeSvg.replace(/<svg([^>]+)width="[^"]+"([^>]*)>/i, '<svg$1$2>');
-                                    safeSvg = safeSvg.replace(/<svg([^>]+)height="[^"]+"([^>]*)>/i, '<svg$1$2>');
-                                    if (!safeSvg.includes('xmlns=')) safeSvg = safeSvg.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ');
-                                    const vb = safeSvg.match(/viewBox="([^"]+)"/i);
-                                    if (vb) {
-                                        const p = vb[1].split(/[ ,]+/);
-                                        if (p.length >= 4) safeSvg = safeSvg.replace('<svg ', `<svg width="${p[2]}" height="${p[3]}" `);
-                                    }
-                                    const blob = new Blob([safeSvg], {type: 'image/svg+xml;charset=utf-8'});
-                                    img.src = URL.createObjectURL(blob);
-                                });
-                                
+                                const pngData = await mermaidToPngSafe(md);
                                 if (pngData) {
                                     const MAX_W = 680, MAX_H = 400;
                                     let fw = pngData.w, fh = pngData.h;
@@ -2470,36 +2590,7 @@ ${matrixRes}
                             md += `  ${prevDirect} --> ER\n`;
                             
                             try {
-                                const id = 'mer_' + Date.now() + Math.floor(Math.random()*1000);
-                                const oldConfig = mermaid.mermaidAPI.getConfig();
-                                mermaid.initialize({ ...oldConfig, startOnLoad: false, theme: 'default', flowchart: { htmlLabels: false, padding: 20, nodeSpacing: 60, rankSpacing: 60, useMaxWidth: false } });
-                                const { svg } = await mermaid.render(id, md);
-                                mermaid.initialize(oldConfig);
-                                
-                                const pngData = await new Promise((resolve) => {
-                                    const img = new Image();
-                                    img.onload = () => {
-                                        const canvas = document.createElement('canvas');
-                                        canvas.width = img.width * 2; canvas.height = img.height * 2;
-                                        const ctx = canvas.getContext('2d');
-                                        ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-                                        ctx.scale(2, 2); ctx.drawImage(img, 0, 0);
-                                        try { resolve({ data: canvas.toDataURL('image/png').split(',')[1], w: img.width, h: img.height }); } catch(e) { resolve(null); }
-                                    };
-                                    img.onerror = () => resolve(null);
-                                    let safeSvg = svg;
-                                    safeSvg = safeSvg.replace(/<svg([^>]+)width="[^"]+"([^>]*)>/i, '<svg$1$2>');
-                                    safeSvg = safeSvg.replace(/<svg([^>]+)height="[^"]+"([^>]*)>/i, '<svg$1$2>');
-                                    if (!safeSvg.includes('xmlns=')) safeSvg = safeSvg.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ');
-                                    const vb = safeSvg.match(/viewBox="([^"]+)"/i);
-                                    if (vb) {
-                                        const p = vb[1].split(/[ ,]+/);
-                                        if (p.length >= 4) safeSvg = safeSvg.replace('<svg ', `<svg width="${p[2]}" height="${p[3]}" `);
-                                    }
-                                    const blob = new Blob([safeSvg], {type: 'image/svg+xml;charset=utf-8'});
-                                    img.src = URL.createObjectURL(blob);
-                                });
-                                
+                                const pngData = await mermaidToPngSafe(md);
                                 if (pngData) {
                                     const MAX_W = 680, MAX_H = 400;
                                     let fw = pngData.w, fh = pngData.h;
